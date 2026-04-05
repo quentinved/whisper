@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod mocks {
     use crate::contracts::repositories::managed_secret_repository::{
         ManagedSecretRepository, ManagedSecretRepositoryError,
@@ -8,6 +8,7 @@ pub mod mocks {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
+    #[derive(Debug)]
     pub struct MockManagedSecretRepository {
         pub secrets: Arc<Mutex<HashMap<SecretId, ManagedSecret>>>,
     }
