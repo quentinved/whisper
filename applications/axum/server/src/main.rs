@@ -1,21 +1,10 @@
-use aes_key::load_aes_key;
 use clap::Parser;
-use postgresql::create_db_pool;
 use std::{net::SocketAddr, sync::Arc};
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::info;
 use whisper_core::commands::shared_secret::delete_expired_secrets::DeleteExpiredSecrets;
-
-mod aes_key;
-mod analytics;
-mod app_state;
-mod error;
-mod html_templates;
-mod logger;
-mod options;
-mod postgresql;
-mod router;
-pub mod source;
+use whisper_server::aes_key::load_aes_key;
+use whisper_server::{analytics, app_state, logger, options, postgresql, router};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Connect to the postgres database
-    let pool = create_db_pool(&options.url_postgresql).await.map_err(|e| {
+    let pool = postgresql::create_db_pool(&options.url_postgresql).await.map_err(|e| {
         tracing::error!("Failed to connect to database: {:?}", e);
         e
     })?;
