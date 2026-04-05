@@ -1,0 +1,32 @@
+[package]
+name = "whisper-secrets"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "whisper-secrets"
+path = "src/main.rs"
+
+[dependencies]
+aes-gcm-crypto = { workspace = true }
+whisper-core = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true, features = ["json", "form"] }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64-url = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+console = { workspace = true }
+dialoguer = { workspace = true }
+indicatif = { workspace = true }
+rand = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

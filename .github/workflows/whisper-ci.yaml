@@ -1,0 +1,79 @@
+# This workflow runs checks on Rust and TypeScript code.
+# It runs on pull requests and on pushes to main branch.
+#   - check if the code is correctly formatted
+#   - check if there are no unhandled clippy warnings
+#   - check if the code compiles
+#   - run unit tests
+#   - lint Discord bot (Biome)
+
+on:
+    pull_request:
+        # TODO: add new directories containing rust code to be checked
+        branches:
+            - "**"
+    push:
+        branches:
+            - "main"
+
+# Cancel outdated workflows on the same branch to spare some CI time
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref_name }}
+    cancel-in-progress: true
+
+name: CI
+
+jobs:
+    fmt:
+        name: Check code formatting
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  components: rustfmt
+            - name: Rustfmt Check
+              uses: actions-rust-lang/rustfmt@v1
+            - run: cargo fmt --check
+
+    lint:
+        name: Check unhandled clippy warnings
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+            - run: rustup component add clippy
+            - run: cargo clippy --workspace --all-targets -- -D warnings
+
+    build:
+        name: Build
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+            - run: cargo build
+
+    unit-tests:
+        name: Unit tests
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+            - run: cargo test --lib '*'
+            - run: cargo test --bin '*'
+
+    discord-lint:
+        name: Discord bot lint
+        runs-on: ubuntu-24.04-arm
+        defaults:
+            run:
+                working-directory: applications/discord
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: oven-sh/setup-bun@v2
+            - run: bun install --frozen-lockfile
+            - run: bun run lint

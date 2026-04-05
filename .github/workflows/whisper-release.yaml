@@ -1,0 +1,84 @@
+name: Release & Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Build release binary
+        run: cargo build --release --bin whisper-server
+
+      - name: Rename binary
+        run: mv target/release/whisper-server whisper-server-linux-arm64
+
+      - name: Build CLI binary
+        run: cargo build --release --bin whisper-secrets
+
+      - name: Rename CLI binary
+        run: mv target/release/whisper-secrets whisper-secrets-linux-arm64
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build Discord bot binary
+        run: |
+          cd applications/discord
+          bun install --frozen-lockfile
+          bun build --compile --target=bun-linux-arm64 index.ts --outfile ../../whisper-discord-bot-linux-arm64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-binaries
+          path: |
+            whisper-server-linux-arm64
+            whisper-secrets-linux-arm64
+            whisper-discord-bot-linux-arm64
+
+  deploy:
+    name: Deploy to Scaleway VM
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-binaries
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload binaries to VM
+        run: |
+          scp whisper-server-linux-arm64 whisper-discord-bot-linux-arm64 \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/root/
+
+      - name: Deploy and restart services
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            mv /root/whisper-server-linux-arm64 /root/whisper-server
+            mv /root/whisper-discord-bot-linux-arm64 /root/whisper-discord-bot
+            chmod +x /root/whisper-server /root/whisper-discord-bot
+            systemctl restart whisper-server
+            systemctl restart whisper-discord-bot
+          EOF

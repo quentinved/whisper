@@ -1,0 +1,16 @@
+[package]
+name = "aes-gcm-crypto"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aes-gcm = { workspace = true }
+whisper-core = { workspace = true }
+pbkdf2 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }

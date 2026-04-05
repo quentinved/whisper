@@ -1,0 +1,23 @@
+{
+  "name": "discord",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
+    "@types/bun": "latest",
+    "@types/node": "^25.3.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "start": "bun index.ts",
+    "deploy-commands": "bun deploy-commands.ts",
+    "lint": "bunx biome check .",
+    "lint:fix": "bunx biome check --write ."
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1"
+  }
+}

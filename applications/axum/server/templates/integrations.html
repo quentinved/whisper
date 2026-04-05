@@ -1,0 +1,144 @@
+{% extends "layout.html" %}
+
+{% block title %}Integrations - Whisper{% endblock %}
+{% block meta_description %}Integrate Whisper with Slack, Discord, Raycast and Microsoft Teams. Share encrypted, self-destructing secrets directly from your favorite tools.{% endblock %}
+
+{% block content %}
+<div class="integrations">
+  <h2 style="margin-top: 0;">Integrations</h2>
+  <p>Use Whisper directly from your favorite tools. Create and share encrypted secrets without leaving the conversation.</p>
+
+  <!-- Slack -->
+  <div class="integration-card">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 127 127" fill="none">
+          <path d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2S.8 87.3.8 80s5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V80z" fill="#E01E5A"/>
+          <path d="M47 27c-7.3 0-13.2-5.9-13.2-13.2S39.7.6 47 .6s13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9s5.9-13.2 13.2-13.2H47z" fill="#36C5F0"/>
+          <path d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V13.8c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2v33.1z" fill="#2EB67D"/>
+          <path d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2s5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H80.1z" fill="#ECB22E"/>
+        </svg>
+      </div>
+      <h3>Slack</h3>
+      <span class="badge badge-available">Available</span>
+    </div>
+    <p class="integration-desc">Create encrypted, self-destructing secrets directly from Slack with the <code>/whisper</code> slash command.</p>
+    <ul class="integration-commands">
+      <li><code>/whisper my-secret</code> &mdash; create a secret (1h, self-destruct)</li>
+      <li><code>/whisper my-secret 24h</code> &mdash; custom expiration</li>
+      <li><code>/whisper my-secret 7d false</code> &mdash; no self-destruct</li>
+    </ul>
+    <a href="https://slack.com/oauth/v2/authorize?client_id=10536873785954.10534881524486&scope=chat:write,commands" target="_blank" rel="noopener noreferrer" class="integration-install" data-platform="slack">
+      <svg width="20" height="20" viewBox="0 0 127 127" fill="none">
+        <path d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2S.8 87.3.8 80s5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V80z" fill="#E01E5A"/>
+        <path d="M47 27c-7.3 0-13.2-5.9-13.2-13.2S39.7.6 47 .6s13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9s5.9-13.2 13.2-13.2H47z" fill="#36C5F0"/>
+        <path d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V13.8c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2v33.1z" fill="#2EB67D"/>
+        <path d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2s5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H80.1z" fill="#ECB22E"/>
+      </svg>
+      Add to your Workspace
+    </a>
+  </div>
+
+  <!-- Discord -->
+  <div class="integration-card">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="#5865F2">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+      </div>
+      <h3>Discord</h3>
+      <span class="badge badge-available">Available</span>
+    </div>
+    <p class="integration-desc">Share encrypted secrets in Discord with a slash command. Same encryption, same self-destruct.</p>
+    <ul class="integration-commands">
+      <li><code>/whisper my-secret</code> &mdash; create a secret (1h, self-destruct)</li>
+      <li><code>/whisper my-secret 24h</code> &mdash; custom expiration</li>
+      <li><code>/whisper my-secret 7d false</code> &mdash; no self-destruct</li>
+    </ul>
+    <a href="https://discord.com/oauth2/authorize?client_id=1475262784618106910" target="_blank" rel="noopener noreferrer" class="integration-install" data-platform="discord">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#5865F2">
+        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+      </svg>
+      Add to your Server
+    </a>
+  </div>
+
+  <!-- Raycast -->
+  <div class="integration-card">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+          <defs>
+            <linearGradient id="raycast-grad" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#FF6363"/>
+              <stop offset="1" stop-color="#FF8C00"/>
+            </linearGradient>
+          </defs>
+          <rect width="16" height="16" rx="3.5" fill="url(#raycast-grad)"/>
+          <path fill="white" fill-rule="evenodd" d="M4.502 10.037v1.46L1 7.996l.734-.728 2.768 2.77Zm1.461 1.46h-1.46L8.004 15l.73-.73-2.772-2.772ZM14.27 8.73 15 8 8.002 1l-.73.73 2.765 2.77H8.365l-1.93-1.93-.73.73 1.201 1.202H6.07v5.431h5.43v-.84l1.203 1.203.73-.73-1.932-1.933V5.961l2.77 2.768ZM4.868 4.134l-.73.73.783.784.73-.73-.783-.784Zm6.215 6.215-.728.73.784.783.73-.73-.786-.783ZM3.3 5.701l-.73.73 1.931 1.933V6.902l-1.2-1.2Zm5.797 5.797H7.636l1.932 1.932.73-.731-1.2-1.201Z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <h3>Raycast</h3>
+      <span class="badge badge-available">Available</span>
+    </div>
+    <p class="integration-desc">Create encrypted, self-destructing secrets directly from Raycast. Supports quick command, guided form, configurable expiration, self-destruct, and Raycast AI tool integration.</p>
+    <a href="https://www.raycast.com/quentinved/whisper" target="_blank" rel="noopener noreferrer" class="integration-install" data-platform="raycast">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+        <defs>
+          <linearGradient id="raycast-grad-btn" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FF6363"/>
+            <stop offset="1" stop-color="#FF8C00"/>
+          </linearGradient>
+        </defs>
+        <rect width="16" height="16" rx="3.5" fill="url(#raycast-grad-btn)"/>
+        <path fill="white" fill-rule="evenodd" d="M4.502 10.037v1.46L1 7.996l.734-.728 2.768 2.77Zm1.461 1.46h-1.46L8.004 15l.73-.73-2.772-2.772ZM14.27 8.73 15 8 8.002 1l-.73.73 2.765 2.77H8.365l-1.93-1.93-.73.73 1.201 1.202H6.07v5.431h5.43v-.84l1.203 1.203.73-.73-1.932-1.933V5.961l2.77 2.768ZM4.868 4.134l-.73.73.783.784.73-.73-.783-.784Zm6.215 6.215-.728.73.784.783.73-.73-.786-.783ZM3.3 5.701l-.73.73 1.931 1.933V6.902l-1.2-1.2Zm5.797 5.797H7.636l1.932 1.932.73-.731-1.2-1.201Z" clip-rule="evenodd"/>
+      </svg>
+      Install Extension
+    </a>
+  </div>
+
+  <!-- CLI -->
+  <div class="integration-card" style="opacity: 0.7;">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+      </div>
+      <h3>CLI</h3>
+      <span class="badge badge-soon">Coming Soon</span>
+    </div>
+    <p class="integration-desc">A zero-knowledge <code>.env</code> secret manager for teams. Push, pull, and rotate encrypted secrets from the command line &mdash; no signup, no accounts. <a href="/docs/secrets">Read the docs</a>.</p>
+  </div>
+
+  <!-- Microsoft Teams -->
+  <div class="integration-card" style="opacity: 0.7;">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="#6264A7">
+          <path d="M19.404 4.5a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5zm-3.75 5.25h4.5a1.5 1.5 0 0 1 1.5 1.5v4.5a3 3 0 0 1-3 3h-.75a5.25 5.25 0 0 0 .75-2.7V11.4a2.96 2.96 0 0 0-1.05-2.25h-2.7a3.7 3.7 0 0 0 .75-.6v1.2zM14.25 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm-4.5 7.5h7.5a1.5 1.5 0 0 1 1.5 1.5v4.5a4.5 4.5 0 0 1-4.5 4.5h-1.5a4.5 4.5 0 0 1-4.5-4.5V12a1.5 1.5 0 0 1 1.5-1.5zM3 13.5v5.25a2.25 2.25 0 0 0 4.5 0V13.5H9v-3H1.5v3H3z"/>
+        </svg>
+      </div>
+      <h3>Microsoft Teams</h3>
+      <span class="badge badge-soon">Coming Soon</span>
+    </div>
+    <p class="integration-desc">Share encrypted secrets directly in Microsoft Teams. Same encryption, same self-destruct. Stay tuned.</p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.whisperTrack) {
+    document.querySelectorAll('.integration-install').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var platform = btn.dataset.platform || 'slack';
+        whisperTrack('integration_install_clicked', { platform: platform });
+      });
+    });
+  }
+</script>
+{% endblock %}

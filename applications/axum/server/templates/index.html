@@ -1,0 +1,251 @@
+{% extends "layout.html" %}
+
+{% block analytics %}{% endblock %}
+{% block content %}
+{% if shared_secret_id.is_none() && error_shared_secret.is_none() %}
+<form
+  class="form"
+  id="form"
+  action="/secret?source=web"
+  method="POST"
+>
+  <!-- Secret Input -->
+  <div class="form-group">
+    <label for="secret-input">Secret to Share</label>
+    <div class="textarea-wrapper">
+      <textarea
+        id="secret-input"
+        name="secret"
+        placeholder="Enter your secret (password, API key, note...)"
+        required
+        autocomplete="off"
+        rows="4"
+      ></textarea>
+      <button
+        type="button"
+        class="textarea-toggle"
+        id="secret-toggle"
+        aria-label="Toggle visibility"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
+    </div>
+    <div class="input-help">
+      Encrypted with AES-256-GCM before storage
+    </div>
+  </div>
+
+  <!-- Expiration -->
+  <div class="form-group">
+    <label for="expiration-input">Link Expires</label>
+    <select id="expiration-input" name="expiration-option" required>
+      <option value="6-hours">In 6 hours</option>
+      <option value="1-day" selected>In 1 day</option>
+      <option value="2-days">In 2 days</option>
+      <option value="7-days">In 7 days</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <div id="custom-expiration" style="display: none; margin-top: 0.75rem;">
+      <input
+        type="datetime-local"
+        id="custom-expiration-date"
+        style="width: 100%;"
+      />
+    </div>
+    <input type="hidden" id="expiration" name="expiration" />
+  </div>
+
+  <!-- Self Destruct -->
+  <div class="form-group">
+    <label class="checkbox-wrapper">
+      <input
+        type="checkbox"
+        id="self_destruct"
+        name="self_destruct"
+        value="true"
+      />
+      <div class="checkbox-label">
+        <div>Self-Destruct</div>
+        <div class="subtitle" style="margin-top: 0.25rem;">
+          Link is destroyed after first view
+        </div>
+      </div>
+    </label>
+  </div>
+
+  <!-- Submit -->
+  <button type="submit" class="btn btn-primary w-full" id="secret-submit">
+    <span>Create Secure Link</span>
+    <div class="spinner" id="submit-spinner" style="display: none;"></div>
+  </button>
+</form>
+{% endif %}
+
+{% if error_shared_secret.is_some() %}
+<div class="alert alert-error">
+  <strong>Error:</strong> {{ error_shared_secret.as_ref().unwrap() }}
+</div>
+<a href="/" class="btn btn-primary w-full" style="margin-top: 1rem;">Try Again</a>
+{% endif %}
+
+{% if shared_secret_id.is_some() %}
+<div class="success-view">
+  <div class="success-icon-large">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </div>
+
+  <h2 class="success-title">Link Created</h2>
+  <p class="success-subtitle">Share this link securely</p>
+
+  <div class="link-display">
+    <input
+      type="text"
+      id="shared-link-input"
+      class="link-input-full"
+      value="{{shared_secret_id.as_ref().unwrap()}}"
+      readonly
+    />
+    <button class="copy-btn-full" id="copy-link" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+      <span>Copy Link</span>
+    </button>
+  </div>
+
+  <a href="/" class="new-link">Share another secret</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Secret visibility toggle
+  const secretInput = document.getElementById('secret-input');
+  const secretToggle = document.getElementById('secret-toggle');
+  let isHidden = true;
+
+  if (secretToggle && secretInput) {
+    // Start with masked text
+    secretInput.style.webkitTextSecurity = 'disc';
+    secretInput.style.textSecurity = 'disc';
+
+    secretToggle.addEventListener('click', () => {
+      isHidden = !isHidden;
+      if (isHidden) {
+        secretInput.style.webkitTextSecurity = 'disc';
+        secretInput.style.textSecurity = 'disc';
+        secretToggle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+      } else {
+        secretInput.style.webkitTextSecurity = 'none';
+        secretInput.style.textSecurity = 'none';
+        secretToggle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+      }
+    });
+  }
+
+  // Expiration handling
+  const expSelect = document.getElementById('expiration-input');
+  const customDiv = document.getElementById('custom-expiration');
+  const customInput = document.getElementById('custom-expiration-date');
+  const expHidden = document.getElementById('expiration');
+
+  if (expSelect) {
+    var MAX_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    // Set max on custom date picker
+    var maxDate = new Date(Date.now() + MAX_MS);
+    customInput.max = maxDate.toISOString().slice(0, 16);
+    var minDate = new Date();
+    customInput.min = minDate.toISOString().slice(0, 16);
+
+    function updateExpiration() {
+      const val = expSelect.value;
+      const now = new Date();
+      let exp;
+
+      if (val === 'custom') {
+        customDiv.style.display = 'block';
+        if (customInput.value) {
+          exp = new Date(customInput.value);
+          var maxAllowed = new Date(now.getTime() + MAX_MS);
+          if (exp > maxAllowed) exp = maxAllowed;
+        }
+      } else {
+        customDiv.style.display = 'none';
+        switch (val) {
+          case '6-hours': exp = new Date(now.getTime() + 6 * 60 * 60 * 1000); break;
+          case '1-day': exp = new Date(now.getTime() + 24 * 60 * 60 * 1000); break;
+          case '2-days': exp = new Date(now.getTime() + 48 * 60 * 60 * 1000); break;
+          case '7-days': exp = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); break;
+        }
+      }
+
+      if (exp) {
+        expHidden.value = Math.floor(exp.getTime() / 1000);
+      }
+    }
+
+    expSelect.addEventListener('change', updateExpiration);
+    customInput.addEventListener('change', updateExpiration);
+    updateExpiration();
+  }
+
+  // Copy link
+  const copyBtn = document.getElementById('copy-link');
+  const linkInput = document.getElementById('shared-link-input');
+  if (copyBtn && linkInput) {
+    copyBtn.addEventListener('click', async () => {
+      const btnText = copyBtn.querySelector('span');
+      if (window.whisperTrack) whisperTrack('link_copied');
+      try {
+        await navigator.clipboard.writeText(linkInput.value);
+        if (btnText) btnText.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          if (btnText) btnText.textContent = 'Copy Link';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (e) {
+        linkInput.select();
+        document.execCommand('copy');
+        if (btnText) btnText.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          if (btnText) btnText.textContent = 'Copy Link';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      }
+    });
+  }
+
+  // Form submit state
+  const form = document.getElementById('form');
+  const submitBtn = document.getElementById('secret-submit');
+
+  if (form && submitBtn) {
+    form.addEventListener('submit', () => {
+      const spinner = document.getElementById('submit-spinner');
+      const text = submitBtn.querySelector('span');
+      if (spinner && text) {
+        spinner.style.display = 'inline-block';
+        text.textContent = 'Encrypting...';
+        submitBtn.disabled = true;
+      }
+    });
+  }
+
+  // Track events (secret_created is tracked server-side with source)
+  if (window.whisperTrack) {
+    if (document.querySelector('.alert-error')) {
+      whisperTrack('secret_creation_failed');
+    }
+  }
+</script>
+{% endblock %}

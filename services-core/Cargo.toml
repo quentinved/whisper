@@ -1,0 +1,15 @@
+[package]
+name = "whisper-core"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono = { workspace = true}
+uuid = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+rstest = { workspace = true }

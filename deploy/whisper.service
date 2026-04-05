@@ -1,0 +1,23 @@
+[Unit]
+Description=Whisper - Secure Secret Sharing
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=whisper
+Group=whisper
+WorkingDirectory=/opt/whisper
+ExecStart=/opt/whisper/whisper-server --url-posgtresql "${DATABASE_URL}" --aes-key-path /opt/whisper/aes_key.bin --listen-addr 0.0.0.0
+EnvironmentFile=/opt/whisper/.env
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/whisper
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block title %}Terms of Service - Whisper{% endblock %}
+{% block meta_description %}Whisper's terms of service. Read about acceptable use, data handling, and the rules for using this encrypted secret-sharing service.{% endblock %}
+
+{% block content %}
+<div class="legal-content">
+  <h2 style="margin-top: 0;">Terms of Service</h2>
+  <p class="legal-date">Last updated: February 19, 2026</p>
+
+  <h2>Acceptance</h2>
+  <p>By using Whisper (the website or Slack integration), you agree to these terms.</p>
+
+  <h2>Service Description</h2>
+  <p>Whisper provides encrypted, temporary secret sharing. Secrets are encrypted with AES-256-GCM, stored in a database, and automatically deleted after expiration or first retrieval (if self-destruct is enabled).</p>
+
+  <h2>Acceptable Use</h2>
+  <p>You agree not to use Whisper to:</p>
+  <ul>
+    <li>Share illegal content or content that violates others' rights</li>
+    <li>Distribute malware, phishing links, or harmful material</li>
+    <li>Abuse the service (automated mass creation, denial of service, etc.)</li>
+  </ul>
+
+  <h2>No Warranty</h2>
+  <p>Whisper is provided <strong>"as is"</strong> without warranty of any kind. While we use strong encryption and security practices, we do not guarantee:</p>
+  <ul>
+    <li>100% uptime or availability</li>
+    <li>That secrets will always be accessible until expiration</li>
+    <li>That the service will meet all your security requirements</li>
+  </ul>
+
+  <h2>Limitation of Liability</h2>
+  <p>Whisper and its maintainers are not liable for any damages arising from the use or inability to use the service, including but not limited to data loss, unauthorized access, or service interruptions.</p>
+
+  <h2>Data Handling</h2>
+  <p>See our <a href="/privacy" class="btn-link" style="color: inherit; text-decoration: underline;">Privacy Policy</a> for details on how data is collected, used, and deleted.</p>
+
+  <h2>Termination</h2>
+  <p>We reserve the right to restrict or terminate access to the service at any time, for any reason, without notice.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms. Continued use of Whisper after changes constitutes acceptance of the updated terms.</p>
+</div>
+{% endblock %}

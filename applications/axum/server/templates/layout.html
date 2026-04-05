@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Whisper - Built to Disappear.{% endblock %}</title>
+    <meta
+      name="description"
+      content="{% block meta_description %}Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption.{% endblock %}"
+    />
+    {% block canonical %}{% endblock %}
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Whisper" />
+    <meta property="og:title" content="Whisper - Built to Disappear." />
+    <meta property="og:description" content="Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption." />
+    <meta property="og:image" content="/assets/logo.svg" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Whisper - Built to Disappear." />
+    <meta name="twitter:description" content="Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption." />
+
+    <!-- JSON-LD -->
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Whisper","description":"Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption.","url":"https://whisper.quentinvedrenne.com"}</script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Modern CSS -->
+    <link rel="stylesheet" href="/assets/css/modern.css" />
+    <link rel="stylesheet" href="/assets/css/pages.css" />
+
+    {% block analytics %}
+    <!-- Analytics (production only) -->
+    <script>
+      if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        // Google Analytics
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-VHN47DE0L5';
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-VHN47DE0L5');
+
+        // Mixpanel
+        (function(e,c){if(!c.__SV){var l,h;window.mixpanel=c;c._i=[];c.init=function(q,r,f){function t(d,a){var g=a.split(".");2==g.length&&(d=d[g[0]],a=g[1]);d[a]=function(){d.push([a].concat(Array.prototype.slice.call(arguments,0)))}}var b=c;"undefined"!==typeof f?b=c[f]=[]:f="mixpanel";b.people=b.people||[];b.toString=function(d){var a="mixpanel";"mixpanel"!==f&&(a+="."+f);d||(a+=" (stub)");return a};b.people.toString=function(){return b.toString(1)+".people (stub)"};l="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders start_session_recording stop_session_recording people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");
+        for(h=0;h<l.length;h++)t(b,l[h]);var n="set set_once union unset remove delete".split(" ");b.get_group=function(){function d(p){a[p]=function(){b.push([g,[p].concat(Array.prototype.slice.call(arguments,0))])}}for(var a={},g=["get_group"].concat(Array.prototype.slice.call(arguments,0)),m=0;m<n.length;m++)d(n[m]);return a};c._i.push([q,r,f])};c.__SV=1.2;var k=e.createElement("script");k.type="text/javascript";k.async=!0;k.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===
+        e.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";e=e.getElementsByTagName("script")[0];e.parentNode.insertBefore(k,e)}})(document,window.mixpanel||[])
+
+        mixpanel.init('420f07e8459f212d7b4702a93a650abf', {
+          autocapture: true,
+          record_sessions_percent: 100,
+          api_host: 'https://api-eu.mixpanel.com',
+        })
+
+        // Analytics helper — sends to both Mixpanel and GA4
+        window.whisperTrack = function(event, props) {
+          mixpanel.track(event, props);
+          gtag('event', event, props);
+        };
+      }
+    </script>
+    {% endblock %}
+
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <!-- Theme Toggle -->
+    <button
+      class="theme-toggle"
+      id="theme-toggle"
+      aria-label="Toggle dark mode"
+    >
+      <span class="theme-icon">
+        <svg
+          class="theme-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </span>
+    </button>
+
+    <!-- App Container -->
+    <div class="app">
+      <!-- Header -->
+      <header class="header">
+        <div class="logo-container">
+          <a href="/">
+            <img src="/assets/logo.svg" alt="Whisper" class="logo-image" />
+          </a>
+        </div>
+        <h1 class="title">Whisper</h1>
+        <p class="slogan">Built to Disappear.</p>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main-container" id="main">
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <a
+          href="https://github.com/RustCrypto/AEADs/tree/master/aes-gcm"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="security-badge"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          AES-256 Encrypted
+        </a>
+        <nav class="footer-links">
+          <a href="/integrations">Integrations</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="mailto:whisper@quentinvedrenne.com">Contact</a>
+        </nav>
+        <p id="version" style="margin-top: 1rem; opacity: 0.5; font-size: 0.75rem;"></p>
+        <p style="margin-top: 0.5rem; opacity: 0.7">
+          Made with Rust by
+          <a
+            href="https://quentinvedrenne.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-link"
+            style="color: inherit; text-decoration: underline"
+            >Quentin Vedrenne</a
+          >
+        </p>
+      </footer>
+    </div>
+
+    <!-- Theme Script -->
+    <script>
+      (function () {
+        const toggle = document.getElementById("theme-toggle");
+        const icon = toggle.querySelector(".theme-svg");
+        const html = document.documentElement;
+
+        const saved = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        const theme = saved || (prefersDark ? "dark" : "light");
+
+        html.setAttribute("data-theme", theme);
+        setIcon(theme);
+
+        function setIcon(t) {
+          if (t === "dark") {
+            icon.innerHTML =
+              '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+          } else {
+            icon.innerHTML =
+              '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+          }
+        }
+
+        toggle.addEventListener("click", function () {
+          const current = html.getAttribute("data-theme");
+          const next = current === "dark" ? "light" : "dark";
+
+          html.setAttribute("data-theme", next);
+          localStorage.setItem("theme", next);
+          setIcon(next);
+        });
+      })();
+    </script>
+
+    <script>
+      fetch('/version').then(r => r.text()).then(v => {
+        document.getElementById('version').textContent = 'v' + v;
+      });
+    </script>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

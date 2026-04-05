@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block title %}Privacy Policy - Whisper{% endblock %}
+{% block meta_description %}Whisper's privacy policy. We collect minimal data — your secrets are AES-256 encrypted and automatically deleted after expiration or first retrieval.{% endblock %}
+
+{% block content %}
+<div class="legal-content">
+  <h2 style="margin-top: 0;">Privacy Policy</h2>
+  <p class="legal-date">Last updated: April 5, 2026</p>
+
+  <h2>What Whisper Does</h2>
+  <p>Whisper is an encrypted secret sharing service. It allows users to share passwords, API keys, and other sensitive text via encrypted, time-limited, optionally self-destructing links.</p>
+
+  <h2>Data We Collect</h2>
+  <p>Whisper is designed to collect as little data as possible:</p>
+  <ul>
+    <li><strong>Secret content</strong> &mdash; encrypted at rest with AES-256-GCM. We cannot read your secrets. They are automatically deleted when they expire or after the first retrieval if self-destruct is enabled.</li>
+    <li><strong>Slack metadata</strong> &mdash; when using the /whisper slash command, Slack sends us your user ID, username, team ID, and channel ID. We use this only to process the command and do not store it.</li>
+  </ul>
+  <p><strong>Analytics</strong> &mdash; We use Google Analytics 4 and Mixpanel to collect anonymous usage data (page views, feature usage). No personal information is tied to these events. Analytics and session recording are disabled on pages that accept or reveal secret content.</p>
+
+  <p>We do <strong>not</strong> collect:</p>
+  <ul>
+    <li>Email addresses or personal information</li>
+    <li>Cookies (only a theme preference stored in your browser's localStorage)</li>
+    <li>IP addresses or access logs beyond standard server operation</li>
+  </ul>
+
+  <h2>How We Use Your Data</h2>
+  <ul>
+    <li>Secret content is encrypted, stored temporarily, and deleted after expiration or first retrieval.</li>
+    <li>Slack command metadata is used only to process your request and return a response. It is not stored.</li>
+  </ul>
+
+  <h2>Data Retention</h2>
+  <ul>
+    <li>Secrets with self-destruct enabled are permanently deleted after the first retrieval.</li>
+    <li>All secrets are permanently deleted when their expiration time is reached.</li>
+    <li>A cleanup job runs every minute to remove expired secrets.</li>
+  </ul>
+
+  <h2>Data Security</h2>
+  <ul>
+    <li>All secrets are encrypted with AES-256-GCM before storage.</li>
+    <li>Each secret uses a unique random nonce.</li>
+    <li>The encryption key is stored on the server, separate from the database.</li>
+    <li>All connections use HTTPS with HSTS enabled.</li>
+    <li>Slack requests are verified using HMAC-SHA256 signature verification.</li>
+  </ul>
+
+  <h2>Third Parties</h2>
+  <p>Whisper uses the following third-party services:</p>
+  <ul>
+    <li><strong>Google Analytics 4</strong> &mdash; anonymous usage analytics</li>
+    <li><strong>Mixpanel</strong> &mdash; product analytics and session recording on non-secret pages only</li>
+    <li><strong>Slack API</strong> &mdash; to process /whisper slash commands (integration only)</li>
+  </ul>
+  <p>No secret content is ever shared with third parties.</p>
+
+  <h2>Your Rights</h2>
+  <p>Since secrets are encrypted and automatically deleted, there is typically no personal data to manage. If you have questions or concerns, contact us at the support email provided in the Slack App Directory listing.</p>
+
+  <h2>Changes</h2>
+  <p>We may update this policy. Changes will be reflected on this page with an updated date.</p>
+</div>
+{% endblock %}

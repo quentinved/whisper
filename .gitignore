@@ -1,0 +1,6 @@
+/target
+.DS_Store
+.whisperrc
+.env
+.env.local
+.env.*.local
