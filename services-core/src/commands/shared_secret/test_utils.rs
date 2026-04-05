@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod mocks {
     use crate::contracts::repositories::shared_secret_repository::{
         SharedSecretRepository, SharedSecretRepositoryError,
@@ -11,6 +11,7 @@ pub mod mocks {
     use std::sync::{Arc, Mutex};
 
     /// Mock encryption that stores plaintext as ciphertext (no real encryption).
+    #[derive(Debug)]
     pub struct MockEncryption;
 
     impl SecretEncryption for MockEncryption {
@@ -31,6 +32,7 @@ pub mod mocks {
     }
 
     /// In-memory mock of SharedSecretRepository with optional deletion tracking.
+    #[derive(Debug)]
     pub struct MockSharedSecretRepository {
         secrets: Arc<Mutex<HashMap<SecretId, SharedSecret>>>,
         deleted: Arc<Mutex<Vec<SecretId>>>,

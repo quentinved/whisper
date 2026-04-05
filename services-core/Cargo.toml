@@ -5,6 +5,9 @@ edition = "2021"
 license.workspace = true
 repository.workspace = true
 
+[features]
+test-utils = []
+
 [dependencies]
 chrono = { workspace = true}
 uuid = { workspace = true }
@@ -13,3 +16,10 @@ thiserror = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 rstest = { workspace = true }
+cucumber = "0.21"
+futures = "0.3"
+
+[[test]]
+name = "cucumber"
+harness = false
+required-features = ["test-utils"]
