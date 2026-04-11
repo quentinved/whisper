@@ -1,19 +1,109 @@
 # Whisper
 
-Secure, ephemeral secret sharing. AES-256-GCM encrypted, auto-expiring, self-destruct after first read. Web app + CLI. Built with Rust/Axum.
+Secure, zero-knowledge secret management. AES-256-GCM encrypted, auto-expiring, self-destruct after first read. CLI + Web app + Integrations. Built with Rust.
+
+## Install
+
+**Shell (macOS / Linux)**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/quentinved/Whisper/main/install.sh | sh
+```
+
+**npm**
+```bash
+npm install -g whisper-secrets
+```
+
+**Binary download**
+
+Pre-built binaries for Linux (x64, arm64), macOS (Apple Silicon), and Windows (x64) are available on the [Releases](https://github.com/quentinved/Whisper/releases/latest) page.
+
+## Quick Start
+
+```bash
+# Initialize a project (generates passphrase + .whisperrc config)
+whisper-secrets init
+
+# Push a secret (value is prompted, never in shell history)
+whisper-secrets push DATABASE_URL
+
+# Your teammate drops in their .whisperrc and runs:
+whisper-secrets pull
+```
+
+### Already have a `.env`?
+
+```bash
+whisper-secrets init
+whisper-secrets import    # uploads every entry from .env
+whisper-secrets pull      # teammates clone the repo and pull
+```
+
+## CLI Commands
+
+### Managed Secrets (`.env` workflow)
+
+```bash
+whisper-secrets init                          # set up a project
+whisper-secrets init --url https://your.host  # use your own server
+whisper-secrets import                        # upload existing .env
+whisper-secrets push SECRET_NAME              # encrypt & upload one secret
+whisper-secrets pull                          # download & decrypt to .env
+whisper-secrets rotate SECRET_NAME            # update a secret in-place
+whisper-secrets remove SECRET_NAME            # delete a secret
+```
+
+### Ephemeral Secrets (one-time sharing)
+
+```bash
+whisper-secrets share                                # 1h, self-destruct
+whisper-secrets share -e 24h                         # custom expiration
+whisper-secrets share -e 7d --no-self-destruct       # keep after first view
+whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
+```
 
 ## Features
 
-- **AES-256-GCM Encryption**: Secrets encrypted at rest with unique nonce per secret
+- **Zero-knowledge CLI**: Secrets encrypted on your machine before anything touches the network
+- **AES-256-GCM Encryption**: Industry-standard authenticated encryption with unique nonce per secret
+- **PBKDF2-SHA256 Key Derivation**: 600,000 iterations — passphrase never leaves your machine
 - **Flexible Expiration**: 6 hours, 1 day, 2 days, or custom (up to 7 days)
 - **Self-Destruct**: Optional one-time access — secrets deleted after first retrieval
-- **CLI**: Create and retrieve secrets from the command line
-- **Slack Integration**: `/whisper` slash command with HMAC-SHA256 signature verification
-- **Managed Secrets API**: Persistent encrypted secrets with bearer token authentication
-- **PostgreSQL Backend**: Reliable storage with automatic migrations
-- **Auto-Cleanup**: Cron job removes expired secrets every minute
+- **Integrations**: Slack, Discord, Raycast
+- **Self-hostable**: Deploy the server anywhere, point `--url` at your instance
 
-## Quick Start
+## How It Works
+
+1. `whisper-secrets init` generates a random passphrase and creates `.whisperrc`
+2. The passphrase derives an encryption key (PBKDF2-SHA256) and an auth token
+3. `push` / `import` encrypt secrets client-side, then upload ciphertext to the server
+4. `pull` downloads ciphertext and decrypts locally
+5. The server only stores encrypted blobs — zero knowledge of your secrets
+
+**Files:**
+- `.whisperrc` — project config (URL + passphrase). Add to `.gitignore`
+- `.env.whisper` — maps secret names to server IDs. Commit to git
+- `.env` — plaintext secrets from `pull`. Add to `.gitignore`
+
+## Security
+
+### Encryption
+- **AES-256-GCM**: Authenticated encryption for secret storage
+- **Unique Nonces**: Random nonce per secret
+- **Key Management**: AES key stored separately from the application
+
+### Data Protection
+- **No Plaintext Storage**: Secrets are never stored in plaintext
+- **Automatic Cleanup**: Expired secrets deleted every minute
+- **Self-Destruct**: Optional one-time access for sensitive secrets
+
+### Security Headers
+- HSTS (Strict-Transport-Security)
+- Content-Security-Policy
+- X-Frame-Options: DENY
+- X-Content-Type-Options: nosniff
+
+## Self-Hosting
 
 ### Prerequisites
 
@@ -21,82 +111,25 @@ Secure, ephemeral secret sharing. AES-256-GCM encrypted, auto-expiring, self-des
 - PostgreSQL 16+
 - Docker & Docker Compose (optional)
 
-### Using Docker Compose (Recommended)
-
-1. **Start the database**
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Create the database**
-   ```bash
-   docker exec -it postgres psql -U postgres -c "CREATE DATABASE whisper;"
-   ```
-
-3. **Generate AES key** (only needed once)
-   ```bash
-   openssl rand -out aes_key.bin 32
-   ```
-
-4. **Run the application**
-   ```bash
-   cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@localhost/whisper"
-   ```
-   > Database migrations are applied automatically on startup.
-
-5. **Access the application**
-   Open [http://localhost:1212](http://localhost:1212) in your browser
-
-### Manual Setup
-
-1. **Setup PostgreSQL**
-   ```bash
-   createdb whisper
-   ```
-
-2. **Generate AES key** (only needed once)
-   ```bash
-   openssl rand -out aes_key.bin 32
-   ```
-
-3. **Run the application**
-   ```bash
-   cargo run --bin whisper-server -- --url-posgtresql "postgres://user:pass@localhost/whisper"
-   ```
-
-## Architecture
-
-This project follows **Hexagonal Architecture** principles with clear separation between:
-
-- **Core Domain** (`services-core/`): Business logic and entities
-- **Adapters** (`adapters/`): External concerns (database, encryption)
-- **Applications** (`applications/`): Web interface and API
-
-### Project Structure
-
-```
-whisper/
-├── services-core/              # Core domain (whisper-core)
-│   ├── entities/               # Domain entities
-│   ├── values_object/          # Value objects (SecretId, SecretExpiration, etc.)
-│   ├── commands/               # Use cases
-│   ├── contracts/              # Repository & service traits
-│   └── services/               # Domain services
-├── adapters/
-│   ├── postgresql-adapter/     # PostgreSQL repository (whisper-postgresql)
-│   └── aes-gcm-crypto/        # AES-256-GCM encryption (whisper-crypto)
-├── applications/
-│   ├── axum/server/            # Axum HTTP server (whisper-server)
-│   ├── cli/                    # CLI client (whisper-secrets)
-│   └── discord/                # Discord bot (TypeScript/Bun)
-└── docker-compose.yml
-```
-
-## Configuration
+### Using Docker Compose
 
 ```bash
-cargo run --bin whisper-server --help
+# Start the database
+docker-compose up -d
+
+# Create the database
+docker exec -it postgres psql -U postgres -c "CREATE DATABASE whisper;"
+
+# Generate AES key (only needed once)
+openssl rand -out aes_key.bin 32
+
+# Run the server
+cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@localhost/whisper"
 ```
+
+> Database migrations are applied automatically on startup.
+
+### Configuration
 
 | Variable | CLI Flag | Default | Description |
 |----------|----------|---------|-------------|
@@ -107,23 +140,26 @@ cargo run --bin whisper-server --help
 | `BASE_URL` | `--base-url` | — | Public URL for share links |
 | `SLACK_SIGNING_SECRET` | `--slack-signing-secret` | — | Enables Slack integration |
 
-## Security Features
+## Architecture
 
-### Encryption
-- **AES-256-GCM**: Industry-standard authenticated encryption for secret storage
-- **Unique Nonces**: Each secret uses a unique random nonce for encryption
-- **Key Management**: AES key stored separately from the application
+Hexagonal Architecture with clear separation between:
 
-### Data Protection
-- **No Plaintext Storage**: Secrets are never stored in plaintext
-- **Automatic Cleanup**: Expired secrets are automatically deleted
-- **Self-Destruct**: Optional one-time access for sensitive secrets
+- **Core Domain** (`services-core/`): Business logic and entities
+- **Adapters** (`adapters/`): External concerns (database, encryption)
+- **Applications** (`applications/`): Web interface, CLI, and bots
 
-### Security Headers
-- HSTS (Strict-Transport-Security)
-- Content-Security-Policy
-- X-Frame-Options: DENY
-- X-Content-Type-Options: nosniff
+```
+whisper/
+├── services-core/              # Core domain (whisper-core)
+├── adapters/
+│   ├── postgresql-adapter/     # PostgreSQL repository
+│   └── aes-gcm-crypto/        # AES-256-GCM encryption
+├── applications/
+│   ├── axum/server/            # Axum HTTP server
+│   ├── cli/                    # CLI (whisper-secrets)
+│   └── discord/                # Discord bot
+└── docker-compose.yml
+```
 
 ## API Endpoints
 
@@ -134,89 +170,21 @@ cargo run --bin whisper-server --help
 | `GET` | `/secret/:id` | Retrieve a secret (JSON API) |
 | `GET` | `/get_secret?shared_secret_id=UUID` | Retrieve secret page (HTML) |
 | `GET` | `/health` | Health check |
-| `GET` | `/privacy` | Privacy policy |
-| `GET` | `/terms` | Terms of service |
-| `GET` | `/integrations` | Integrations page |
 | `POST` | `/slack/whisper` | Slack slash command |
 | `PUT` | `/v1/secrets/:id` | Upsert managed secret |
 | `GET` | `/v1/secrets/:id` | Get managed secret |
 | `DELETE` | `/v1/secrets/:id` | Delete managed secret |
 
-## CLI
-
-Zero-knowledge `.env` secret manager. Encrypt, store, and share secrets with your team — no signup, no accounts.
-
-### Managed Secrets (`.env` workflow)
-
-```bash
-# Initialize a project (generates passphrase + .whisperrc config)
-whisper-secrets init
-whisper-secrets init --url https://your-server.com
-
-# Import an existing .env file (encrypts & uploads every entry)
-whisper-secrets import
-
-# Push a single secret
-whisper-secrets push DATABASE_URL
-
-# Pull all secrets into .env
-whisper-secrets pull
-
-# Rotate a secret's value
-whisper-secrets rotate DATABASE_URL
-
-# Delete a secret
-whisper-secrets remove DATABASE_URL
-```
-
-### Ephemeral Secrets (one-time sharing)
-
-```bash
-# Share a secret (default: 1h expiration, self-destruct on)
-whisper-secrets share --expiration 1h
-
-# Share without self-destruct
-whisper-secrets share --expiration 24h --no-self-destruct
-
-# Retrieve a secret by URL or ID
-whisper-secrets get https://whisper.example.com/get_secret?shared_secret_id=UUID
-```
-
 ## Development
-
-### Running Tests
 
 ```bash
 # Run all tests
 cargo test --workspace
 
-# Run tests for specific component
-cargo test -p whisper-core
-cargo test -p whisper-crypto
-
 # Lint & format
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --check
 ```
-
-### Database Migrations
-
-Migrations are automatically applied on startup. Migration files are located in `adapters/postgresql-adapter/migrations/`.
-
-## Dependencies
-
-### Core
-- **Axum**: Modern web framework for Rust
-- **SQLx**: Async SQL toolkit with compile-time checked queries
-- **AES-GCM**: Authenticated encryption
-- **Askama**: Type-safe template engine
-- **tower-http**: Security headers middleware
-
-### Development
-- **Clap**: Command-line argument parsing with env var support
-- **Tracing**: Structured logging
-- **Tokio**: Async runtime
-- **Chrono**: Date and time handling
 
 ## License
 
