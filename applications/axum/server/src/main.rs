@@ -27,10 +27,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Connect to the postgres database
-    let pool = postgresql::create_db_pool(&options.url_postgresql).await.map_err(|e| {
-        tracing::error!("Failed to connect to database: {:?}", e);
-        e
-    })?;
+    let pool = postgresql::create_db_pool(&options.url_postgresql)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to connect to database: {:?}", e);
+            e
+        })?;
     info!("Connected to PostgreSQL database");
 
     whisper_postgresql::migrations::apply_migrations(&pool).await?;
