@@ -31,3 +31,14 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 subtle = { workspace = true }
 reqwest = { workspace = true }
+
+[dev-dependencies]
+testcontainers = "0.27.2"
+testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
+reqwest = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }

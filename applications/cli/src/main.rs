@@ -1,15 +1,7 @@
-mod client;
-mod commands;
-mod config;
-mod crypto;
-mod env_whisper;
-mod error;
-mod session;
-mod ui;
-
 use clap::{Parser, Subcommand};
-use commands::get::ShareTarget;
 use console::style;
+use whisper_secrets::commands;
+use whisper_secrets::commands::get::ShareTarget;
 
 #[derive(Parser)]
 #[command(
