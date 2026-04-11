@@ -1,0 +1,267 @@
+name: CLI Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version matches Cargo.toml
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CARGO_VERSION=$(echo "$VERSION" | sed 's/-.*//')
+          if ! grep -q "version = \"$CARGO_VERSION\"" applications/cli/Cargo.toml; then
+            echo "::error::Tag version $CARGO_VERSION does not match applications/cli/Cargo.toml"
+            exit 1
+          fi
+
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "v$VERSION" --draft --verify-tag \
+            --title "whisper-secrets v$VERSION" \
+            $PRERELEASE_FLAG
+
+  build-release:
+    name: Build ${{ matrix.name }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO: cargo
+      CROSS_VERSION: v0.2.5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            use_cross: true
+            npm_pkg: linux-x64
+            node_os: linux
+            node_arch: x64
+          - name: linux-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            use_cross: true
+            npm_pkg: linux-arm64
+            node_os: linux
+            node_arch: arm64
+          - name: darwin-x64
+            os: macos-13
+            target: x86_64-apple-darwin
+            use_cross: false
+            npm_pkg: darwin-x64
+            node_os: darwin
+            node_arch: x64
+          - name: darwin-arm64
+            os: macos-14
+            target: aarch64-apple-darwin
+            use_cross: false
+            npm_pkg: darwin-arm64
+            node_os: darwin
+            node_arch: arm64
+          - name: win32-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            use_cross: false
+            npm_pkg: win32-x64
+            node_os: win32
+            node_arch: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/cross-download"
+          mkdir "$dir"
+          echo "$dir" >> $GITHUB_PATH
+          cd "$dir"
+          curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
+          tar xf cross-x86_64-unknown-linux-musl.tar.gz
+          echo "CARGO=cross" >> $GITHUB_ENV
+
+      - name: Build release binary
+        shell: bash
+        run: |
+          ${{ env.CARGO }} build --release --locked --bin whisper-secrets --target ${{ matrix.target }}
+
+      - name: Strip binary (unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          strip "target/${{ matrix.target }}/release/whisper-secrets"
+
+      - name: Package archive (unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          ARCHIVE="whisper-secrets-$VERSION-${{ matrix.target }}"
+          mkdir "$ARCHIVE"
+          cp "target/${{ matrix.target }}/release/whisper-secrets" "$ARCHIVE/"
+          cp README.md LICENSE* "$ARCHIVE/" 2>/dev/null || true
+          tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+          shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
+          echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
+
+      - name: Package archive (windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          ARCHIVE="whisper-secrets-$VERSION-${{ matrix.target }}"
+          mkdir "$ARCHIVE"
+          cp "target/${{ matrix.target }}/release/whisper-secrets.exe" "$ARCHIVE/"
+          cp README.md LICENSE* "$ARCHIVE/" 2>/dev/null || true
+          7z a "$ARCHIVE.zip" "$ARCHIVE"
+          certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+          echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
+          echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          gh release upload "v$VERSION" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish platform npm package
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd npm
+          VERSION="${{ needs.create-release.outputs.version }}"
+          export version="$VERSION"
+          export node_os="${{ matrix.node_os }}"
+          export node_arch="${{ matrix.node_arch }}"
+          export node_pkg="${{ matrix.npm_pkg }}"
+
+          mkdir -p "${node_pkg}/bin"
+          envsubst < package.json.tmpl > "${node_pkg}/package.json"
+
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp "../target/${{ matrix.target }}/release/whisper-secrets.exe" "${node_pkg}/bin/"
+          else
+            cp "../target/${{ matrix.target }}/release/whisper-secrets" "${node_pkg}/bin/"
+            chmod +x "${node_pkg}/bin/whisper-secrets"
+          fi
+
+          cd "${node_pkg}"
+          NPM_TAG="latest"
+          if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
+            NPM_TAG="rc"
+          fi
+          npm publish --access public --tag "$NPM_TAG"
+
+  publish-npm:
+    name: Publish base npm package
+    needs: [create-release, build-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update version and publish
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd npm/whisper-secrets
+          VERSION="${{ needs.create-release.outputs.version }}"
+
+          node -e "
+            const pkg = require('./package.json');
+            pkg.version = '$VERSION';
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = '$VERSION';
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          cp ../../README.md .
+
+          NPM_TAG="latest"
+          if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
+            NPM_TAG="rc"
+          fi
+          npm publish --access public --tag "$NPM_TAG"
+
+  finalize:
+    name: Finalize release
+    needs: [create-release, publish-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          gh release edit "v$VERSION" --draft=false

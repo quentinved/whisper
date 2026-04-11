@@ -1,0 +1,23 @@
+{
+  "name": "whisper-secrets",
+  "version": "0.1.0",
+  "description": "Secure, encrypted secret management CLI for teams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quentinved/Whisper"
+  },
+  "bin": {
+    "whisper-secrets": "bin/whisper-secrets"
+  },
+  "optionalDependencies": {
+    "@whisper-secrets/linux-x64": "0.1.0",
+    "@whisper-secrets/linux-arm64": "0.1.0",
+    "@whisper-secrets/darwin-x64": "0.1.0",
+    "@whisper-secrets/darwin-arm64": "0.1.0",
+    "@whisper-secrets/win32-x64": "0.1.0"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
