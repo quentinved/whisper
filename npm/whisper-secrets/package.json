@@ -1,19 +1,37 @@
 {
   "name": "whisper-secrets",
   "version": "0.1.0",
-  "description": "Secure, encrypted secret management CLI for teams",
+  "description": "Secure, encrypted secret management CLI for teams. Zero-knowledge .env manager with client-side AES-256-GCM encryption.",
   "license": "MIT",
+  "author": "Quentin Vedrenne",
+  "homepage": "https://whisper.quentinvedrenne.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/quentinved/Whisper"
   },
+  "bugs": {
+    "url": "https://github.com/quentinved/Whisper/issues"
+  },
+  "keywords": [
+    "secrets",
+    "env",
+    "dotenv",
+    "encryption",
+    "aes-256-gcm",
+    "secret-management",
+    "cli",
+    "zero-knowledge"
+  ],
   "bin": {
     "whisper-secrets": "bin/whisper-secrets"
   },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
   "optionalDependencies": {
     "@whisper-secrets/linux-x64": "0.1.0",
     "@whisper-secrets/linux-arm64": "0.1.0",
-    "@whisper-secrets/darwin-x64": "0.1.0",
     "@whisper-secrets/darwin-arm64": "0.1.0",
     "@whisper-secrets/win32-x64": "0.1.0"
   },

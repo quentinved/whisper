@@ -4,3 +4,6 @@
 .env
 .env.local
 .env.*.local
+
+# npm packaging
+npm/whisper-secrets/node_modules/
