@@ -99,7 +99,7 @@
   </div>
 
   <!-- CLI -->
-  <div class="integration-card" style="opacity: 0.7;">
+  <div class="integration-card">
     <div class="integration-header">
       <div class="integration-icon">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,9 +108,21 @@
         </svg>
       </div>
       <h3>CLI</h3>
-      <span class="badge badge-soon">Coming Soon</span>
+      <span class="badge badge-available">Available</span>
     </div>
-    <p class="integration-desc">A zero-knowledge <code>.env</code> secret manager for teams. Push, pull, and rotate encrypted secrets from the command line &mdash; no signup, no accounts. <a href="/docs/secrets">Read the docs</a>.</p>
+    <p class="integration-desc">A zero-knowledge <code>.env</code> secret manager for teams. Push, pull, and rotate encrypted secrets from the command line &mdash; no signup, no accounts.</p>
+    <ul class="integration-commands">
+      <li><code>whisper-secrets init</code> &mdash; set up a project</li>
+      <li><code>whisper-secrets push SECRET_NAME</code> &mdash; encrypt &amp; upload</li>
+      <li><code>whisper-secrets pull</code> &mdash; download &amp; decrypt to .env</li>
+    </ul>
+    <a href="/docs/secrets" class="integration-install" data-platform="cli">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </svg>
+      Install &amp; Docs
+    </a>
   </div>
 
   <!-- Microsoft Teams -->

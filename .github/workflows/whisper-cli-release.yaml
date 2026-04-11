@@ -89,15 +89,8 @@ jobs:
             npm_pkg: linux-arm64
             node_os: linux
             node_arch: arm64
-          - name: darwin-x64
-            os: macos-13
-            target: x86_64-apple-darwin
-            use_cross: false
-            npm_pkg: darwin-x64
-            node_os: darwin
-            node_arch: x64
           - name: darwin-arm64
-            os: macos-14
+            os: macos-latest
             target: aarch64-apple-darwin
             use_cross: false
             npm_pkg: darwin-arm64
@@ -137,11 +130,22 @@ jobs:
         run: |
           ${{ env.CARGO }} build --release --locked --bin whisper-secrets --target ${{ matrix.target }}
 
+      - name: Install cross-compilation strip tools
+        if: matrix.use_cross && matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Strip binary (unix)
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
-          strip "target/${{ matrix.target }}/release/whisper-secrets"
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            aarch64-linux-gnu-strip "target/${{ matrix.target }}/release/whisper-secrets"
+          else
+            strip "target/${{ matrix.target }}/release/whisper-secrets"
+          fi
 
       - name: Package archive (unix)
         if: matrix.os != 'windows-latest'
@@ -244,8 +248,6 @@ jobs:
             }
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
-
-          cp ../../README.md .
 
           NPM_TAG="latest"
           if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then

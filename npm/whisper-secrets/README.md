@@ -87,7 +87,7 @@ whisper-secrets get https://whisper.example.com/get_secret?shared_secret_id=UUID
 | Platform | Architecture |
 |----------|-------------|
 | Linux | x64, arm64 |
-| macOS | x64, arm64 (Apple Silicon) |
+| macOS | arm64 (Apple Silicon) |
 | Windows | x64 |
 
 ## Self-hosting
