@@ -45,7 +45,8 @@ impl WhisperClient {
 
     fn url(&self, path: &str) -> Url {
         let mut url = self.base_url.clone();
-        url.set_path(&format!("{}/{}", url.path(), path.trim_start_matches('/')));
+        let base_path = url.path().trim_end_matches('/');
+        url.set_path(&format!("{}/{}", base_path, path.trim_start_matches('/')));
         url
     }
 

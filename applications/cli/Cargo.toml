@@ -5,6 +5,10 @@ edition = "2021"
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "whisper_secrets"
+path = "src/lib.rs"
+
 [[bin]]
 name = "whisper-secrets"
 path = "src/main.rs"
@@ -30,3 +34,11 @@ url = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+testcontainers = "0.27.2"
+testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
+tokio = { workspace = true }
+rand = { workspace = true }
+whisper-server = { path = "../axum/server" }
+whisper-postgresql = { workspace = true }
+sqlx = { workspace = true }
+axum = { workspace = true }

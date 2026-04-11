@@ -83,6 +83,15 @@ jobs:
             - uses: actions-rust-lang/setup-rust-toolchain@v1
             - run: cargo test -p whisper-server --test api
 
+    cli-tests:
+        name: CLI integration tests
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+            - run: cargo test -p whisper-secrets --test cli -- --test-threads=1
+
     discord-lint:
         name: Discord bot lint
         runs-on: ubuntu-24.04-arm
