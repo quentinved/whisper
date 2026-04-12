@@ -18,48 +18,48 @@ npm install -g whisper-secrets
 ## Quick Start
 
 ```bash
-# Initialize a project (generates passphrase + .whisperrc config)
-whisper-secrets init
+# Initialize a project (generates passphrase + share link for your team)
+ws init
 
-# Share the generated link with your team
-# Teammates clone the repo, then:
-whisper-secrets pull
+# Import your existing .env or push secrets one by one
+ws import
+ws push STRIPE_SECRET_KEY
+
+# Teammates:
+git clone <repo> && cd <repo>
+ws join <link-from-teammate>    # auto-pulls if .env.whisper is present
 ```
+
+> **Tip:** `ws` is a shortcut for `whisper-secrets`. Both work.
 
 ## Managed Secrets (`.env` workflow)
 
 ```bash
-# Initialize a project
-whisper-secrets init
-whisper-secrets init --url https://your-server.com
+ws init                          # set up a project
+ws init --url https://your.host  # use your own server
+ws import                        # upload existing .env
+ws push SECRET_NAME              # encrypt & upload one secret
+ws push                          # pick untracked .env entries interactively
+ws pull                          # download & decrypt to .env
+ws rotate SECRET_NAME            # update a secret in-place
+ws remove SECRET_NAME            # delete a secret
+ws status                        # show tracked, missing, and untracked secrets
+```
 
-# Import an existing .env file (encrypts & uploads every entry)
-whisper-secrets import
+## Team Collaboration
 
-# Push a single secret
-whisper-secrets push DATABASE_URL
-
-# Pull all secrets into .env
-whisper-secrets pull
-
-# Rotate a secret's value
-whisper-secrets rotate DATABASE_URL
-
-# Delete a secret
-whisper-secrets remove DATABASE_URL
+```bash
+ws invite                        # generate a new share link for a teammate
+ws join <link>                   # join a project (auto-pulls if .env.whisper is present)
 ```
 
 ## Ephemeral Secrets (one-time sharing)
 
 ```bash
-# Share a secret (default: 1h expiration, self-destruct on)
-whisper-secrets share --expiration 1h
-
-# Share without self-destruct
-whisper-secrets share --expiration 24h --no-self-destruct
-
-# Retrieve a secret by URL or ID
-whisper-secrets get https://whisper.example.com/get_secret?shared_secret_id=UUID
+ws share                                # 1h, self-destruct
+ws share -e 24h                         # custom expiration
+ws share -e 7d --no-self-destruct       # keep after first view
+ws get https://whisper.example.com/...  # retrieve by URL or ID
 ```
 
 ## How It Works

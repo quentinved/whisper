@@ -1,6 +1,6 @@
 {
   "name": "whisper-secrets",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Secure, encrypted secret management CLI for teams. Zero-knowledge .env manager with client-side AES-256-GCM encryption.",
   "license": "MIT",
   "author": "Quentin Vedrenne",
@@ -23,17 +23,18 @@
     "zero-knowledge"
   ],
   "bin": {
-    "whisper-secrets": "bin/whisper-secrets"
+    "whisper-secrets": "bin/whisper-secrets",
+    "ws": "bin/whisper-secrets"
   },
   "files": [
     "bin/",
     "README.md"
   ],
   "optionalDependencies": {
-    "@whisper-secrets/linux-x64": "0.1.0",
-    "@whisper-secrets/linux-arm64": "0.1.0",
-    "@whisper-secrets/darwin-arm64": "0.1.0",
-    "@whisper-secrets/win32-x64": "0.1.0"
+    "@whisper-secrets/linux-x64": "0.2.0",
+    "@whisper-secrets/linux-arm64": "0.2.0",
+    "@whisper-secrets/darwin-arm64": "0.2.0",
+    "@whisper-secrets/win32-x64": "0.2.0"
   },
   "engines": {
     "node": ">=16"

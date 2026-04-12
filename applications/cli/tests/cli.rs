@@ -13,6 +13,7 @@ use whisper_server::analytics::AnalyticsTracker;
 use whisper_server::app_state::AppState;
 
 use whisper_secrets::client::WhisperClient;
+use whisper_secrets::commands::get::ShareTarget;
 
 struct TestEnv {
     server_url: Url,
@@ -392,19 +393,17 @@ async fn rotate_updates_secret_value() {
 }
 
 #[tokio::test]
-async fn push_duplicate_name_fails() {
+async fn push_interactive_with_no_untracked_is_noop() {
     let env = TestEnv::start().await;
     env.enter_work_dir();
     env.init().await;
 
-    // Push a secret
-    env.push_secret("UNIQUE_KEY", "value1").await;
+    // Push a secret and pull it (so .env matches .env.whisper)
+    env.push_secret("TRACKED", "val").await;
+    env.pull().await;
 
-    // Attempting to set the same name again via env_whisper should overwrite,
-    // but the push command itself checks for duplicates — verify the guard exists
-    assert!(whisper_secrets::env_whisper::get("UNIQUE_KEY")
-        .unwrap()
-        .is_some());
+    // Interactive push with no name — should skip (nothing untracked)
+    whisper_secrets::commands::push::run(None).await.unwrap();
 }
 
 #[tokio::test]
@@ -416,6 +415,32 @@ async fn remove_nonexistent_secret_fails() {
     // Remove a secret that was never pushed — should error
     let result = whisper_secrets::commands::remove::run("DOES_NOT_EXIST").await;
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn remove_already_deleted_on_server_succeeds() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    // Push a secret
+    env.push_secret("DOUBLE_DEL", "val").await;
+    let uuid = whisper_secrets::env_whisper::get("DOUBLE_DEL")
+        .unwrap()
+        .unwrap();
+
+    // Delete directly on server first (simulates another client deleting it)
+    let session = whisper_secrets::session::Session::load().unwrap();
+    session.client().delete_secret(&uuid).await.unwrap();
+
+    // Now remove via CLI — server returns 404 but should still clean up locally
+    whisper_secrets::commands::remove::run("DOUBLE_DEL")
+        .await
+        .unwrap();
+
+    assert!(whisper_secrets::env_whisper::get("DOUBLE_DEL")
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -518,4 +543,158 @@ async fn teammate_with_wrong_passphrase_fails_to_decrypt() {
     // Pull should fail — wrong passphrase means decryption fails or auth fails
     let result = whisper_secrets::commands::pull::run().await;
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn join_from_share_link_and_pull() {
+    let env = TestEnv::start().await;
+
+    // === Dev1: init and push a secret ===
+    env.enter_work_dir();
+    env.init().await;
+
+    env.push_secret("JOIN_TEST", "join-value").await;
+    let env_whisper_content = std::fs::read_to_string(".env.whisper").unwrap();
+
+    // Read dev1's config to get the passphrase
+    let config = env.read_config();
+    let passphrase = config["passphrase"].as_str().unwrap().to_string();
+
+    // Create a share link with the passphrase (simulates what init does)
+    let client = WhisperClient::new(&env.server_url);
+    let expiration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 3600;
+    let share_url = client
+        .create_ephemeral_secret(&passphrase, expiration, false)
+        .await
+        .unwrap();
+
+    // === Dev2: clone repo (simulate by copying .env.whisper), then join ===
+    let dir2 = env.create_second_dir();
+    std::env::set_current_dir(dir2.path()).unwrap();
+
+    // Simulate git clone — .env.whisper is in the repo
+    std::fs::write(".env.whisper", &env_whisper_content).unwrap();
+
+    let target: ShareTarget = share_url.as_str().parse().unwrap();
+    whisper_secrets::commands::join::run(&target).await.unwrap();
+
+    // Verify .whisperrc was created with correct values
+    let config2: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(".whisperrc").unwrap()).unwrap();
+    assert_eq!(config2["passphrase"].as_str().unwrap(), passphrase);
+    assert_eq!(config2["url"].as_str().unwrap(), env.server_url.as_str());
+
+    // Verify auto-pull created .env with the secret
+    let content = std::fs::read_to_string(".env").unwrap();
+    assert!(content.contains("JOIN_TEST=join-value"));
+}
+
+#[tokio::test]
+async fn status_shows_tracked_and_untracked() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    // Push 2 secrets and pull them
+    env.push_secret("TRACKED_A", "val-a").await;
+    env.push_secret("TRACKED_B", "val-b").await;
+    env.pull().await;
+
+    // Add a local-only entry to .env
+    let mut content = std::fs::read_to_string(".env").unwrap();
+    content.push_str("LOCAL_ONLY=debug\n");
+    std::fs::write(".env", &content).unwrap();
+
+    // Status should succeed (it's a pure local check, no server calls)
+    whisper_secrets::commands::status::run().unwrap();
+
+    // Verify the data status would read
+    let tracked = whisper_secrets::env_whisper::read().unwrap();
+    assert_eq!(tracked.len(), 2);
+    assert!(tracked.contains_key("TRACKED_A"));
+    assert!(tracked.contains_key("TRACKED_B"));
+
+    // .env should have 3 entries (2 tracked + 1 local-only)
+    let env_vars = env.read_env();
+    assert_eq!(env_vars.len(), 3);
+    assert!(env_vars.contains_key("LOCAL_ONLY"));
+}
+
+#[tokio::test]
+async fn status_without_init_does_not_crash() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+
+    // No init — status should handle gracefully
+    whisper_secrets::commands::status::run().unwrap();
+}
+
+#[tokio::test]
+async fn status_needs_pull_when_env_missing() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    // Push secrets but don't pull — .env doesn't exist
+    env.push_secret("MISSING_A", "val").await;
+    env.push_secret("MISSING_B", "val").await;
+
+    // Status should succeed and detect missing secrets
+    whisper_secrets::commands::status::run().unwrap();
+
+    let tracked = whisper_secrets::env_whisper::read().unwrap();
+    assert_eq!(tracked.len(), 2);
+    assert!(!Path::new(".env").exists());
+}
+
+#[tokio::test]
+async fn invite_creates_new_share_link() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    // Invite should succeed — it re-shares the passphrase
+    whisper_secrets::commands::invite::run().await.unwrap();
+}
+
+#[tokio::test]
+async fn join_rejects_raw_uuid() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+
+    // Join with a raw UUID should fail — needs a full URL
+    let target: ShareTarget = "550e8400-e29b-41d4-a716-446655440000".parse().unwrap();
+    let result = whisper_secrets::commands::join::run(&target).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn join_skips_if_config_exists() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    // Create a share link
+    let client = WhisperClient::new(&env.server_url);
+    let expiration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 3600;
+    let share_url = client
+        .create_ephemeral_secret("passphrase", expiration, false)
+        .await
+        .unwrap();
+
+    // Join should skip because .whisperrc already exists
+    let target: ShareTarget = share_url.as_str().parse().unwrap();
+    whisper_secrets::commands::join::run(&target).await.unwrap();
+
+    // .whisperrc should still have the original config (not overwritten)
+    let config = env.read_config();
+    assert_ne!(config["passphrase"].as_str().unwrap(), "passphrase");
 }

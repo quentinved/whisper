@@ -1,6 +1,6 @@
 [package]
 name = "whisper-secrets"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license.workspace = true
 repository.workspace = true
@@ -17,6 +17,7 @@ path = "src/main.rs"
 aes-gcm-crypto = { workspace = true }
 whisper-core = { workspace = true }
 clap = { workspace = true }
+clap_complete = { workspace = true }
 reqwest = { workspace = true, features = ["json", "form"] }
 uuid = { workspace = true }
 serde = { workspace = true }

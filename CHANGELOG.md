@@ -1,4 +1,12 @@
 # Changelog
+## 12/04/2026 - https://github.com/quentinved/whisper/pull/5
+- Add `join`, `invite`, `status`, `completions` commands and `ws` alias
+- Smart `push` (interactive picker), smarter `pull` (warns about local-only entries), clipboard prompt on share links
+- Fix CI: macOS runner, Linux arm64 strip, add checkout to finalize job, drop macOS Intel target
+- Add install script (`curl | sh`) and npm distribution with platform-specific binaries
+- Update README, npm README, web docs, and integrations page with all new commands and install methods
+
+
 ## 11/04/2026 - https://github.com/quentinved/whisper/pull/4
 - Implement CLI distribution via npm and GitHub Releases (Linux x64/arm64, macOS x64/arm64, Windows x64)
 - GitHub Actions workflow to build and publish platform-specific npm packages on new release tags

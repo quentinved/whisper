@@ -17,7 +17,7 @@ pub async fn run() -> Result<(), CliError> {
         return Ok(());
     }
 
-    if !confirm_overwrite()? {
+    if !confirm_overwrite(&entries)? {
         println!("{} Aborted.", style("skip:").yellow().bold());
         return Ok(());
     }
@@ -39,15 +39,37 @@ pub async fn run() -> Result<(), CliError> {
     Ok(())
 }
 
-fn confirm_overwrite() -> Result<bool, CliError> {
+fn confirm_overwrite(tracked: &BTreeMap<String, String>) -> Result<bool, CliError> {
     let env_path = Path::new(".env");
     if !env_path.exists() {
         return Ok(true);
     }
 
+    let local = env_whisper::read_env_file();
+    let local_only: Vec<&String> = local.keys().filter(|k| !tracked.contains_key(*k)).collect();
+
+    if local_only.is_empty() {
+        return dialoguer::Confirm::new()
+            .with_prompt("This will overwrite your .env file. Continue?")
+            .default(true)
+            .interact()
+            .map_err(|e| CliError::Input(e.to_string()));
+    }
+
+    eprintln!(
+        "{} Your .env has {} local-only entries not tracked by whisper-secrets:",
+        style("warn:").yellow().bold(),
+        local_only.len()
+    );
+    for name in &local_only {
+        eprintln!("  - {}", style(name).yellow());
+    }
+    eprintln!("  These will be lost after pull.");
+    eprintln!();
+
     dialoguer::Confirm::new()
-        .with_prompt("This will overwrite your .env file. Continue?")
-        .default(true)
+        .with_prompt("Overwrite .env anyway?")
+        .default(false)
         .interact()
         .map_err(|e| CliError::Input(e.to_string()))
 }

@@ -32,7 +32,7 @@ fn parse_env_file() -> Result<Vec<(String, String)>, CliError> {
         return Err(CliError::NoEnvFile);
     }
 
-    let content = std::fs::read_to_string(env_path).map_err(CliError::EnvWrite)?;
+    let content = std::fs::read_to_string(env_path).map_err(CliError::EnvRead)?;
 
     let entries: Vec<(String, String)> = content
         .lines()

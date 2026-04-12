@@ -632,6 +632,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa3c596da3cf0983427b0df0dba359df9182c13bd5b519b585a482b0c351f4e8"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2384,7 +2393,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -4331,12 +4340,13 @@ dependencies = [
 
 [[package]]
 name = "whisper-secrets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aes-gcm-crypto",
  "axum 0.7.5",
  "base64-url",
  "clap",
+ "clap_complete",
  "console",
  "dialoguer",
  "indicatif",
@@ -4361,7 +4371,7 @@ dependencies = [
 
 [[package]]
 name = "whisper-server"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "aes-gcm-crypto",
  "askama",

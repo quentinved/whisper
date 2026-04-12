@@ -28,6 +28,7 @@ tracing-subscriber = { version = "0.3", features = ["json", "fmt", "env-filter"]
 chrono = "0.4.44"
 sha2 = "0.10"
 aes-gcm = "0.10.3"
+clap_complete = "4"
 whisper-core = { path = "services-core" }
 whisper-postgresql = { path = "adapters/postgresql-adapter" }
 aes-gcm-crypto = { path = "adapters/aes-gcm-crypto" }

@@ -1,4 +1,5 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use console::style;
 use whisper_secrets::commands;
 use whisper_secrets::commands::get::ShareTarget;
@@ -34,12 +35,19 @@ enum Commands {
         /// Whisper share URL or secret ID
         target: ShareTarget,
     },
+    /// Join a project using a Whisper share link from a teammate
+    Join {
+        /// Whisper share URL (from `whisper-secrets init`)
+        link: ShareTarget,
+    },
+    /// Generate a new share link to invite a teammate (re-shares the passphrase)
+    Invite,
     /// Read an existing .env file and upload every entry as an encrypted secret
     Import,
-    /// Encrypt and upload a single secret (prompts for the value)
+    /// Encrypt and upload a single secret, or pick from untracked .env entries
     Push {
-        /// Environment variable name (e.g. DATABASE_URL)
-        name: String,
+        /// Environment variable name (e.g. DATABASE_URL). Omit to pick interactively.
+        name: Option<String>,
     },
     /// Download and decrypt all secrets into a .env file
     Pull,
@@ -62,6 +70,14 @@ enum Commands {
         #[arg(long)]
         no_self_destruct: bool,
     },
+    /// Show the current state of tracked and local secrets
+    Status,
+    /// Generate shell completions
+    #[command(hide = true)]
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
+    },
 }
 
 #[tokio::main]
@@ -78,12 +94,14 @@ async fn main() {
 
     let result = match cli.command {
         Commands::Get { target } => commands::get::run(&target).await,
+        Commands::Join { link } => commands::join::run(&link).await,
+        Commands::Invite => commands::invite::run().await,
         Commands::Import => commands::import::run().await,
         Commands::Init {
             url,
             manual_passphrase,
         } => commands::init::run(url.as_deref(), manual_passphrase).await,
-        Commands::Push { name } => commands::push::run(&name).await,
+        Commands::Push { name } => commands::push::run(name.as_deref()).await,
         Commands::Pull => commands::pull::run().await,
         Commands::Remove { name } => commands::remove::run(&name).await,
         Commands::Rotate { name } => commands::rotate::run(&name).await,
@@ -91,6 +109,11 @@ async fn main() {
             expiration,
             no_self_destruct,
         } => commands::share::run(&expiration, no_self_destruct).await,
+        Commands::Status => commands::status::run(),
+        Commands::Completions { shell } => {
+            commands::completions::run(shell, &mut Cli::command());
+            Ok(())
+        }
     };
 
     if let Err(e) = result {
