@@ -4340,7 +4340,7 @@ dependencies = [
 
 [[package]]
 name = "whisper-secrets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aes-gcm-crypto",
  "axum 0.7.5",
@@ -4371,7 +4371,7 @@ dependencies = [
 
 [[package]]
 name = "whisper-server"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "aes-gcm-crypto",
  "askama",
