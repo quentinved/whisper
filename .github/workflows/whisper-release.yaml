@@ -19,7 +19,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --workspace --lib --bin
+          cargo test --workspace --lib --bins
           cargo test -p whisper-secrets --test cli -- --test-threads=1
 
       - name: Build release binary
