@@ -1,8 +1,12 @@
+pub mod completions;
 pub mod get;
 pub mod import;
 pub mod init;
+pub mod invite;
+pub mod join;
 pub mod pull;
 pub mod push;
 pub mod remove;
 pub mod rotate;
 pub mod share;
+pub mod status;

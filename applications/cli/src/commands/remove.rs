@@ -20,7 +20,7 @@ pub async fn run(name: &str) -> Result<(), CliError> {
 
     // Also remove from .env if exists
     if Path::new(".env").exists() {
-        let content = std::fs::read_to_string(".env").map_err(CliError::EnvWrite)?;
+        let content = std::fs::read_to_string(".env").map_err(CliError::EnvRead)?;
         let filtered: String = content
             .lines()
             .filter(|line| !line.starts_with(&format!("{}=", name)))

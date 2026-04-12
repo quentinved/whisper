@@ -59,6 +59,8 @@ pub async fn run(expiration: &str, no_self_destruct: bool) -> Result<(), CliErro
         style(share_url.as_str()).underlined()
     );
 
+    crate::clipboard::prompt_and_copy(share_url.as_str())?;
+
     Ok(())
 }
 

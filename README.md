@@ -4,7 +4,7 @@ Secure, zero-knowledge secret management. AES-256-GCM encrypted, auto-expiring, 
 
 ## Install
 
-**Shell (macOS / Linux)**
+**Shell (macOS Apple Silicon / Linux)**
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/quentinved/Whisper/main/install.sh | sh
 ```
@@ -16,27 +16,24 @@ npm install -g whisper-secrets
 
 **Binary download**
 
-Pre-built binaries for Linux (x64, arm64), macOS (Apple Silicon), and Windows (x64) are available on the [Releases](https://github.com/quentinved/Whisper/releases/latest) page.
+Pre-built binaries for Linux (x64, arm64), macOS (Apple Silicon only — Intel Mac not supported), and Windows (x64) are available on the [Releases](https://github.com/quentinved/Whisper/releases/latest) page.
 
 ## Quick Start
 
 ```bash
-# Initialize a project (generates passphrase + .whisperrc config)
+# 1. Initialize a project (generates passphrase + share link for your team)
 whisper-secrets init
 
-# Push a secret (value is prompted, never in shell history)
-whisper-secrets push DATABASE_URL
+# 2. Import your existing .env or push secrets one by one
+whisper-secrets import                  # encrypt & upload every entry from .env
+whisper-secrets push STRIPE_SECRET_KEY  # or add secrets individually
 
-# Your teammate drops in their .whisperrc and runs:
-whisper-secrets pull
-```
+# 3. Commit .env.whisper to git (contains only UUIDs, no secrets)
 
-### Already have a `.env`?
-
-```bash
-whisper-secrets init
-whisper-secrets import    # uploads every entry from .env
-whisper-secrets pull      # teammates clone the repo and pull
+# 4. Teammates clone the repo, cd into it, install the CLI, and join:
+git clone <repo> && cd <repo>
+npm install -g whisper-secrets
+whisper-secrets join <link-from-teammate>  # creates .whisperrc + auto-pulls
 ```
 
 ## CLI Commands
@@ -48,9 +45,18 @@ whisper-secrets init                          # set up a project
 whisper-secrets init --url https://your.host  # use your own server
 whisper-secrets import                        # upload existing .env
 whisper-secrets push SECRET_NAME              # encrypt & upload one secret
+whisper-secrets push                          # pick untracked .env entries interactively
 whisper-secrets pull                          # download & decrypt to .env
 whisper-secrets rotate SECRET_NAME            # update a secret in-place
 whisper-secrets remove SECRET_NAME            # delete a secret
+whisper-secrets status                        # show tracked, missing, and untracked secrets
+```
+
+### Team Collaboration
+
+```bash
+whisper-secrets invite                        # generate a new share link for a teammate
+whisper-secrets join <link>                   # join a project (auto-pulls if .env.whisper is present)
 ```
 
 ### Ephemeral Secrets (one-time sharing)
@@ -61,6 +67,8 @@ whisper-secrets share -e 24h                         # custom expiration
 whisper-secrets share -e 7d --no-self-destruct       # keep after first view
 whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 ```
+
+> **Tip:** If installed via npm or the shell installer, `ws` is available as a shortcut for `whisper-secrets`.
 
 ## Features
 

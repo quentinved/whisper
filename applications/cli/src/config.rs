@@ -47,10 +47,16 @@ impl WhisperConfig {
             None => Url::parse(DEFAULT_URL).expect("DEFAULT_URL is a valid URL"),
         };
 
-        Ok(Self {
-            url,
-            passphrase: config.passphrase.ok_or(CliError::MissingPassphrase)?,
-        })
+        let passphrase = config.passphrase.ok_or(CliError::MissingPassphrase)?;
+
+        if passphrase.is_empty() {
+            eprintln!(
+                "\x1b[33mWARNING: passphrase in {} is empty. This is insecure.\x1b[0m",
+                CONFIG_FILE
+            );
+        }
+
+        Ok(Self { url, passphrase })
     }
 }
 

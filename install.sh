@@ -12,7 +12,7 @@ INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 case "$(uname -s)" in
     Linux*)  OS="unknown-linux-gnu";;
     Darwin*) OS="apple-darwin";;
-    MINGW*|MSYS*|CYGWIN*) OS="pc-windows-msvc";;
+    MINGW*|MSYS*|CYGWIN*) echo "Error: Use 'npm install -g whisper-secrets' on Windows."; exit 1;;
     *) echo "Error: Unsupported operating system: $(uname -s)"; exit 1;;
 esac
 
@@ -27,7 +27,7 @@ TARGET="${ARCH}-${OS}"
 
 # Check supported combinations
 case "${TARGET}" in
-    x86_64-unknown-linux-gnu|aarch64-unknown-linux-gnu|aarch64-apple-darwin|x86_64-pc-windows-msvc) ;;
+    x86_64-unknown-linux-gnu|aarch64-unknown-linux-gnu|aarch64-apple-darwin) ;;
     *) echo "Error: Unsupported platform: ${TARGET}"; exit 1;;
 esac
 
@@ -44,27 +44,22 @@ echo "Installing ${BINARY} v${VERSION} for ${TARGET}..."
 
 # Download
 ARCHIVE="${BINARY}-${VERSION}-${TARGET}"
-if [ "$OS" = "pc-windows-msvc" ]; then
-    URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}.zip"
-    TMPFILE=$(mktemp /tmp/whisper-secrets-XXXXXX.zip)
-    curl -sSfL "$URL" -o "$TMPFILE"
-    unzip -o "$TMPFILE" -d /tmp
-    cp "/tmp/${ARCHIVE}/${BINARY}.exe" "${INSTALL_DIR}/"
-    rm -rf "$TMPFILE" "/tmp/${ARCHIVE}"
-else
-    URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}.tar.gz"
-    TMPFILE=$(mktemp /tmp/whisper-secrets-XXXXXX.tar.gz)
-    curl -sSfL "$URL" -o "$TMPFILE"
-    tar xzf "$TMPFILE" -C /tmp
-    cp "/tmp/${ARCHIVE}/${BINARY}" "${INSTALL_DIR}/"
-    chmod +x "${INSTALL_DIR}/${BINARY}"
-    rm -rf "$TMPFILE" "/tmp/${ARCHIVE}"
-fi
+URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}.tar.gz"
+TMPFILE=$(mktemp /tmp/whisper-secrets-XXXXXX.tar.gz)
+curl -sSfL "$URL" -o "$TMPFILE"
+tar xzf "$TMPFILE" -C /tmp
+cp "/tmp/${ARCHIVE}/${BINARY}" "${INSTALL_DIR}/"
+chmod +x "${INSTALL_DIR}/${BINARY}"
+rm -rf "$TMPFILE" "/tmp/${ARCHIVE}"
+
+# Create ws alias
+ln -sf "${INSTALL_DIR}/${BINARY}" "${INSTALL_DIR}/ws"
 
 echo ""
 echo "  ${BINARY} v${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
+echo "  Alias: ws -> whisper-secrets"
 echo ""
 echo "  Get started:"
-echo "    whisper-secrets init"
-echo "    whisper-secrets --help"
+echo "    ws init"
+echo "    ws --help"
 echo ""

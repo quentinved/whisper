@@ -58,6 +58,9 @@ pub enum CliError {
     #[error("Failed to write .env.whisper")]
     EnvWhisperWrite(#[source] std::io::Error),
 
+    #[error("Failed to read .env")]
+    EnvRead(#[source] std::io::Error),
+
     #[error("Failed to write .env")]
     EnvWrite(#[source] std::io::Error),
 

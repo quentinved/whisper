@@ -2,7 +2,27 @@ use crate::error::CliError;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-const ENV_WHISPER_FILE: &str = ".env.whisper";
+pub const ENV_WHISPER_FILE: &str = ".env.whisper";
+const ENV_FILE: &str = ".env";
+
+/// Read the local .env file into a BTreeMap of key=value pairs.
+/// Returns an empty map if .env doesn't exist. Warns on permission errors.
+pub fn read_env_file() -> BTreeMap<String, String> {
+    let content = match std::fs::read_to_string(ENV_FILE) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return BTreeMap::new(),
+        Err(e) => {
+            eprintln!("warning: could not read {}: {}", ENV_FILE, e);
+            return BTreeMap::new();
+        }
+    };
+    content
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
 
 fn read_from(path: &Path) -> Result<BTreeMap<String, String>, CliError> {
     if !path.exists() {

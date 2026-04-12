@@ -179,7 +179,7 @@ impl WhisperClient {
 
         debug!("DELETE -> {}", response.status());
         match response.status() {
-            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::NO_CONTENT | StatusCode::NOT_FOUND => Ok(()),
             StatusCode::UNAUTHORIZED => Err(CliError::Unauthorized),
             StatusCode::FORBIDDEN => Err(CliError::Forbidden),
             StatusCode::TOO_MANY_REQUESTS => Err(CliError::RateLimited),

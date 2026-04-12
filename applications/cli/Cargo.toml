@@ -17,6 +17,7 @@ path = "src/main.rs"
 aes-gcm-crypto = { workspace = true }
 whisper-core = { workspace = true }
 clap = { workspace = true }
+clap_complete = { workspace = true }
 reqwest = { workspace = true, features = ["json", "form"] }
 uuid = { workspace = true }
 serde = { workspace = true }

@@ -37,14 +37,15 @@ pub async fn run(url: Option<&str>, manual_passphrase: bool) -> Result<(), CliEr
         generate_passphrase()
     };
 
-    write_config(config_path, url_str, &passphrase)?;
     let share_url = share_passphrase(&url, &passphrase).await?;
+    write_config(config_path, url_str, &passphrase)?;
     print_success(&share_url);
+    crate::clipboard::prompt_and_copy(share_url.as_str())?;
 
     Ok(())
 }
 
-fn write_config(path: &Path, url: &str, passphrase: &str) -> Result<(), CliError> {
+pub fn write_config(path: &Path, url: &str, passphrase: &str) -> Result<(), CliError> {
     let config = serde_json::json!({
         "url": url,
         "passphrase": passphrase,
@@ -64,7 +65,7 @@ fn write_config(path: &Path, url: &str, passphrase: &str) -> Result<(), CliError
     Ok(())
 }
 
-async fn share_passphrase(url: &Url, passphrase: &str) -> Result<Url, CliError> {
+pub async fn share_passphrase(url: &Url, passphrase: &str) -> Result<Url, CliError> {
     let spinner = ui::spinner("Sharing passphrase via Whisper...");
 
     let now = std::time::SystemTime::now()
