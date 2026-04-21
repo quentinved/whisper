@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   create-release:
@@ -191,9 +192,8 @@ jobs:
 
       - name: Publish platform npm package
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm install -g npm@latest
           cd npm
           VERSION="${{ needs.create-release.outputs.version }}"
           export version="$VERSION"
@@ -216,7 +216,7 @@ jobs:
           if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
             NPM_TAG="rc"
           fi
-          npm publish --access public --tag "$NPM_TAG"
+          npm publish --access public --tag "$NPM_TAG" --provenance
 
   publish-npm:
     name: Publish base npm package
@@ -234,9 +234,8 @@ jobs:
 
       - name: Update version and publish
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm install -g npm@latest
           cd npm/whisper-secrets
           VERSION="${{ needs.create-release.outputs.version }}"
 
@@ -253,7 +252,7 @@ jobs:
           if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
             NPM_TAG="rc"
           fi
-          npm publish --access public --tag "$NPM_TAG"
+          npm publish --access public --tag "$NPM_TAG" --provenance
 
   finalize:
     name: Finalize release
