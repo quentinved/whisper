@@ -203,6 +203,7 @@ jobs:
 
           mkdir -p "${node_pkg}/bin"
           envsubst < package.json.tmpl > "${node_pkg}/package.json"
+          cp platform-README.md "${node_pkg}/README.md"
 
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "../target/${{ matrix.target }}/release/whisper-secrets.exe" "${node_pkg}/bin/"
