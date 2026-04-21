@@ -24,6 +24,9 @@ struct TestEnv {
 
 impl TestEnv {
     async fn start() -> Self {
+        // Ensure no test accidentally emits real telemetry if it ever spawns the CLI binary.
+        std::env::set_var("DO_NOT_TRACK", "1");
+
         // 1. Start PostgreSQL container
         let container = Postgres::default().start().await.unwrap();
         let host_port = container.get_host_port_ipv4(5432).await.unwrap();

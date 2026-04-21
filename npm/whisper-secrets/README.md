@@ -105,6 +105,20 @@ Then point the CLI to your server:
 whisper-secrets init --url https://your-whisper-instance.com
 ```
 
+## Telemetry
+
+`whisper-secrets` sends anonymous usage events to help us understand which commands are actually used and measure real adoption (npm download counts include bots and CI, so they don't reflect real usage).
+
+**What's collected:** the command name (e.g. `push`, `pull`), success/failure, CLI version, OS, and CPU architecture. A random anonymous ID is stored in `~/.whisper-secrets/telemetry_id` so we can count unique users.
+
+**What's never collected:** secrets, secret names, file paths, passphrases, environment variable names, or any personal data.
+
+**To opt out**, set the `DO_NOT_TRACK` environment variable:
+
+```bash
+export DO_NOT_TRACK=1
+```
+
 ## License
 
 MIT — [github.com/quentinved/Whisper](https://github.com/quentinved/Whisper)

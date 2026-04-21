@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   create-release:
@@ -191,9 +192,8 @@ jobs:
 
       - name: Publish platform npm package
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm install -g npm@latest
           cd npm
           VERSION="${{ needs.create-release.outputs.version }}"
           export version="$VERSION"
@@ -203,6 +203,7 @@ jobs:
 
           mkdir -p "${node_pkg}/bin"
           envsubst < package.json.tmpl > "${node_pkg}/package.json"
+          cp platform-README.md "${node_pkg}/README.md"
 
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "../target/${{ matrix.target }}/release/whisper-secrets.exe" "${node_pkg}/bin/"
@@ -216,7 +217,7 @@ jobs:
           if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
             NPM_TAG="rc"
           fi
-          npm publish --access public --tag "$NPM_TAG"
+          npm publish --access public --tag "$NPM_TAG" --provenance
 
   publish-npm:
     name: Publish base npm package
@@ -234,9 +235,8 @@ jobs:
 
       - name: Update version and publish
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm install -g npm@latest
           cd npm/whisper-secrets
           VERSION="${{ needs.create-release.outputs.version }}"
 
@@ -253,7 +253,7 @@ jobs:
           if [ "${{ needs.create-release.outputs.prerelease }}" = "true" ]; then
             NPM_TAG="rc"
           fi
-          npm publish --access public --tag "$NPM_TAG"
+          npm publish --access public --tag "$NPM_TAG" --provenance
 
   finalize:
     name: Finalize release

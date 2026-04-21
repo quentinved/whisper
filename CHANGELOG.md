@@ -1,4 +1,9 @@
 # Changelog
+## 21/04/2026 - https://github.com/quentinved/whisper/pull/8
+- Add anonymous CLI telemetry via Mixpanel (command, success, version, os, arch); opt out with `DO_NOT_TRACK=1`
+- Switch npm publish to OIDC Trusted Publishing with `--provenance` (no more `NPM_TOKEN`)
+- Add Slack community link to footer, integrations page, and README
+
 ## 12/04/2026 - https://github.com/quentinved/whisper/pull/5
 - Add `join`, `invite`, `status`, `completions` commands and `ws` alias
 - Smart `push` (interactive picker), smarter `pull` (warns about local-only entries), clipboard prompt on share links

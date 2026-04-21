@@ -3,6 +3,7 @@ use clap_complete::Shell;
 use console::style;
 use whisper_secrets::commands;
 use whisper_secrets::commands::get::ShareTarget;
+use whisper_secrets::telemetry;
 
 #[derive(Parser)]
 #[command(
@@ -92,6 +93,7 @@ async fn main() {
             .init();
     }
 
+    let command_name = command_name(&cli.command);
     let result = match cli.command {
         Commands::Get { target } => commands::get::run(&target).await,
         Commands::Join { link } => commands::join::run(&link).await,
@@ -116,8 +118,29 @@ async fn main() {
         }
     };
 
+    if let Some(handle) = telemetry::track_command(command_name, result.is_ok()) {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), handle).await;
+    }
+
     if let Err(e) = result {
         eprintln!("{} {}", style("error:").red().bold(), e);
         std::process::exit(1);
+    }
+}
+
+fn command_name(cmd: &Commands) -> &'static str {
+    match cmd {
+        Commands::Init { .. } => "init",
+        Commands::Get { .. } => "get",
+        Commands::Join { .. } => "join",
+        Commands::Invite => "invite",
+        Commands::Import => "import",
+        Commands::Push { .. } => "push",
+        Commands::Pull => "pull",
+        Commands::Remove { .. } => "remove",
+        Commands::Rotate { .. } => "rotate",
+        Commands::Share { .. } => "share",
+        Commands::Status => "status",
+        Commands::Completions { .. } => "completions",
     }
 }
