@@ -1,5 +1,7 @@
 # Whisper
 
+[![Slack Community](https://img.shields.io/badge/Community-Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/whisper-secrets/shared_invite/zt-3vtg200cj-tlOebOVAceFKeqfPbK9WuQ)
+
 Secure, zero-knowledge secret management. AES-256-GCM encrypted, auto-expiring, self-destruct after first read. CLI + Web app + Integrations. Built with Rust.
 
 ## Install
