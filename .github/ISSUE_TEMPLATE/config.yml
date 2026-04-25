@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/quentinved/Whisper/security/advisories/new
+    about: Report security issues privately. Do not open a public issue.
+  - name: Slack community
+    url: https://join.slack.com/t/whisper-secrets/shared_invite/zt-3vtg200cj-tlOebOVAceFKeqfPbK9WuQ
+    about: Ask a question or chat with maintainers and other users.

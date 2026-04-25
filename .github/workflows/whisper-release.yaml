@@ -20,19 +20,13 @@ jobs:
       - name: Run tests
         run: |
           cargo test --workspace --lib --bins
-          cargo test -p whisper-secrets --test cli -- --test-threads=1
+          cargo test -p whisper-server --test api
 
       - name: Build release binary
         run: cargo build --release --bin whisper-server
 
       - name: Rename binary
         run: mv target/release/whisper-server whisper-server-linux-arm64
-
-      - name: Build CLI binary
-        run: cargo build --release --bin whisper-secrets
-
-      - name: Rename CLI binary
-        run: mv target/release/whisper-secrets whisper-secrets-linux-arm64
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -49,7 +43,6 @@ jobs:
           name: release-binaries
           path: |
             whisper-server-linux-arm64
-            whisper-secrets-linux-arm64
             whisper-discord-bot-linux-arm64
 
   deploy:

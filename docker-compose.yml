@@ -9,7 +9,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: FILL-ME
+      POSTGRES_DB: whisper
 
 volumes:
   pgdata:
