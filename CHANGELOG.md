@@ -1,4 +1,10 @@
 # Changelog
+## 25/04/2026 - https://github.com/quentinved/whisper/pull/9
+- Add OSS contributor essentials: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates
+- Restructure README around two products (one-time sharing + team `.env`), add CI/npm/release/license badges, move deep architecture to `docs/architecture.md`
+- Gate the CLI npm release on tests (fmt, clippy, unit + CLI integration); scope the Scaleway deploy tests to server-only
+- `docker-compose.yml` auto-creates the `whisper` database on first start, add platform README for `@whisper-secrets/*` npm packages
+
 ## 21/04/2026 - https://github.com/quentinved/whisper/pull/8
 - Add anonymous CLI telemetry via Mixpanel (command, success, version, os, arch); opt out with `DO_NOT_TRACK=1`
 - Switch npm publish to OIDC Trusted Publishing with `--provenance` (no more `NPM_TOKEN`)
