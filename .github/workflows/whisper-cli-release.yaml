@@ -15,8 +15,29 @@ permissions:
   id-token: write
 
 jobs:
+  test:
+    name: Pre-release tests
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+      - name: Format check
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --features test-utils -- -D warnings
+      - name: Unit + bin tests
+        run: |
+          cargo test --workspace --lib
+          cargo test --workspace --bins
+      - name: CLI integration tests
+        run: cargo test -p whisper-secrets --test cli -- --test-threads=1
+
   create-release:
     name: Create release
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}

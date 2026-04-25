@@ -1,8 +1,38 @@
 # Whisper
 
+[![CI](https://github.com/quentinved/Whisper/actions/workflows/whisper-ci.yaml/badge.svg)](https://github.com/quentinved/Whisper/actions/workflows/whisper-ci.yaml)
+[![npm version](https://img.shields.io/npm/v/whisper-secrets?logo=npm)](https://www.npmjs.com/package/whisper-secrets)
+[![npm downloads](https://img.shields.io/npm/dm/whisper-secrets?logo=npm)](https://www.npmjs.com/package/whisper-secrets)
+[![GitHub release](https://img.shields.io/github/v/release/quentinved/Whisper?logo=github)](https://github.com/quentinved/Whisper/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/quentinved/Whisper)](LICENSE)
 [![Slack Community](https://img.shields.io/badge/Community-Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/whisper-secrets/shared_invite/zt-3vtg200cj-tlOebOVAceFKeqfPbK9WuQ)
 
-Secure, zero-knowledge secret management. AES-256-GCM encrypted, auto-expiring, self-destruct after first read. CLI + Web app + Integrations. Built with Rust.
+Whisper is a zero-knowledge secret manager for developers and teams. Encrypt your `.env` on your machine and sync it with your team, or send a one-time secret via a short-lived URL — without a server that can read your data. Use the hosted instance at [whisper.quentinvedrenne.com](https://whisper.quentinvedrenne.com), deploy your own, or run the CLI standalone.
+
+## Two ways to use Whisper
+
+### 1. One-time secret sharing
+
+Send a password, API key, or any secret via a URL that auto-expires and optionally self-destructs after first read. Use the hosted [web app](https://whisper.quentinvedrenne.com), the [Slack / Discord integrations](https://whisper.quentinvedrenne.com/integrations), or the CLI:
+
+```bash
+whisper-secrets share              # 1h expiration, self-destructs on read
+whisper-secrets share -e 24h       # custom expiration (up to 7d)
+whisper-secrets get <url-or-id>    # retrieve someone else's secret
+```
+
+### 2. Team `.env` management
+
+Manage your project's `.env` across a team without storing plaintext anywhere. Secrets are **encrypted on your machine** before upload — the server only ever sees ciphertext.
+
+```bash
+whisper-secrets init                    # set up a project, get a share link for teammates
+whisper-secrets import                  # encrypt & upload every entry from .env
+whisper-secrets push STRIPE_SECRET_KEY  # add secrets individually
+whisper-secrets pull                    # download & decrypt to .env
+```
+
+Commit `.env.whisper` (UUIDs only, no plaintext) to git. Teammates run `whisper-secrets join <link>` to clone access and auto-pull.
 
 ## Install
 
@@ -19,24 +49,6 @@ npm install -g whisper-secrets
 **Binary download**
 
 Pre-built binaries for Linux (x64, arm64), macOS (Apple Silicon only — Intel Mac not supported), and Windows (x64) are available on the [Releases](https://github.com/quentinved/Whisper/releases/latest) page.
-
-## Quick Start
-
-```bash
-# 1. Initialize a project (generates passphrase + share link for your team)
-whisper-secrets init
-
-# 2. Import your existing .env or push secrets one by one
-whisper-secrets import                  # encrypt & upload every entry from .env
-whisper-secrets push STRIPE_SECRET_KEY  # or add secrets individually
-
-# 3. Commit .env.whisper to git (contains only UUIDs, no secrets)
-
-# 4. Teammates clone the repo, cd into it, install the CLI, and join:
-git clone <repo> && cd <repo>
-npm install -g whisper-secrets
-whisper-secrets join <link-from-teammate>  # creates .whisperrc + auto-pulls
-```
 
 ## CLI Commands
 
@@ -72,21 +84,11 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 
 > **Tip:** If installed via npm or the shell installer, `ws` is available as a shortcut for `whisper-secrets`.
 
-## Features
-
-- **Zero-knowledge CLI**: Secrets encrypted on your machine before anything touches the network
-- **AES-256-GCM Encryption**: Industry-standard authenticated encryption with unique nonce per secret
-- **PBKDF2-SHA256 Key Derivation**: 600,000 iterations — passphrase never leaves your machine
-- **Flexible Expiration**: 6 hours, 1 day, 2 days, or custom (up to 7 days)
-- **Self-Destruct**: Optional one-time access — secrets deleted after first retrieval
-- **Integrations**: Slack, Discord, Raycast
-- **Self-hostable**: Deploy the server anywhere, point `--url` at your instance
-
 ## How It Works
 
 1. `whisper-secrets init` generates a random passphrase and creates `.whisperrc`
-2. The passphrase derives an encryption key (PBKDF2-SHA256) and an auth token
-3. `push` / `import` encrypt secrets client-side, then upload ciphertext to the server
+2. The passphrase derives an encryption key (PBKDF2-SHA256, 600,000 iterations) and an auth token
+3. `push` / `import` encrypt secrets client-side with AES-256-GCM, then upload ciphertext to the server
 4. `pull` downloads ciphertext and decrypts locally
 5. The server only stores encrypted blobs — zero knowledge of your secrets
 
@@ -97,21 +99,14 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 
 ## Security
 
-### Encryption
-- **AES-256-GCM**: Authenticated encryption for secret storage
-- **Unique Nonces**: Random nonce per secret
-- **Key Management**: AES key stored separately from the application
+- **AES-256-GCM** authenticated encryption with a unique nonce per secret
+- **PBKDF2-SHA256** at 600,000 iterations for client-side key derivation (CLI)
+- **Server-side encryption** for ephemeral web/Slack/Discord secrets (AES-256-GCM with a server-held key, separate from the application)
+- **Automatic cleanup** of expired secrets (every minute)
+- **Self-destruct** option deletes a secret immediately after first retrieval
+- **Security headers** on all responses: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
 
-### Data Protection
-- **No Plaintext Storage**: Secrets are never stored in plaintext
-- **Automatic Cleanup**: Expired secrets deleted every minute
-- **Self-Destruct**: Optional one-time access for sensitive secrets
-
-### Security Headers
-- HSTS (Strict-Transport-Security)
-- Content-Security-Policy
-- X-Frame-Options: DENY
-- X-Content-Type-Options: nosniff
+Found a vulnerability? **Please report it privately** — see [SECURITY.md](SECURITY.md).
 
 ## Self-Hosting
 
@@ -124,11 +119,8 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 ### Using Docker Compose
 
 ```bash
-# Start the database
+# Start the database (creates the `whisper` database on first start)
 docker-compose up -d
-
-# Create the database
-docker exec -it postgres psql -U postgres -c "CREATE DATABASE whisper;"
 
 # Generate AES key (only needed once)
 openssl rand -out aes_key.bin 32
@@ -152,50 +144,17 @@ cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@loc
 
 ## Architecture
 
-Hexagonal Architecture with clear separation between:
+Whisper uses a hexagonal (Ports & Adapters) layout with a pure Rust domain (`services-core/`), adapters for I/O (`adapters/postgresql-adapter`, `adapters/aes-gcm-crypto`), and applications (`applications/axum/server`, `applications/cli`, `applications/discord`). For a deeper walkthrough — crate responsibilities, routes, storage schema, and where to add new functionality — see [docs/architecture.md](docs/architecture.md).
 
-- **Core Domain** (`services-core/`): Business logic and entities
-- **Adapters** (`adapters/`): External concerns (database, encryption)
-- **Applications** (`applications/`): Web interface, CLI, and bots
+## Contributing
 
-```
-whisper/
-├── services-core/              # Core domain (whisper-core)
-├── adapters/
-│   ├── postgresql-adapter/     # PostgreSQL repository
-│   └── aes-gcm-crypto/        # AES-256-GCM encryption
-├── applications/
-│   ├── axum/server/            # Axum HTTP server
-│   ├── cli/                    # CLI (whisper-secrets)
-│   └── discord/                # Discord bot
-└── docker-compose.yml
-```
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, code standards, tests, and the PR process.
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Create secret form (HTML) |
-| `POST` | `/secret` | Create a new ephemeral secret |
-| `GET` | `/secret/:id` | Retrieve a secret (JSON API) |
-| `GET` | `/get_secret?shared_secret_id=UUID` | Retrieve secret page (HTML) |
-| `GET` | `/health` | Health check |
-| `POST` | `/slack/whisper` | Slack slash command |
-| `PUT` | `/v1/secrets/:id` | Upsert managed secret |
-| `GET` | `/v1/secrets/:id` | Get managed secret |
-| `DELETE` | `/v1/secrets/:id` | Delete managed secret |
-
-## Development
-
-```bash
-# Run all tests
-cargo test --workspace
-
-# Lint & format
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --check
-```
+- [Report a bug](https://github.com/quentinved/Whisper/issues/new?template=bug_report.yml)
+- [Request a feature](https://github.com/quentinved/Whisper/issues/new?template=feature_request.yml)
+- [Report a security issue](SECURITY.md) — please do not open a public issue
+- [Join the Slack community](https://join.slack.com/t/whisper-secrets/shared_invite/zt-3vtg200cj-tlOebOVAceFKeqfPbK9WuQ) for questions, ideas, and help
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see [LICENSE](LICENSE).
