@@ -76,7 +76,7 @@ pub enum CliError {
     #[error("Invalid duration '{0}'. Use formats like 30m, 1h, 24h, or 7d.")]
     InvalidDuration(String),
 
-    #[error("Missing config file '{0}'. Run `whisper-secrets init` to create one.")]
+    #[error("No {0} found — run `whisper-secrets init` to create a project or `whisper-secrets join <link>` to join one.")]
     MissingConfig(String),
 
     #[error("Failed to write .whisperrc")]
@@ -99,4 +99,21 @@ pub enum CliError {
 
     #[error("Invalid URL in config: {0}")]
     ConfigInvalidUrl(#[from] url::ParseError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_config_error_mentions_init_and_join() {
+        let err = CliError::MissingConfig(".whisperrc".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("init"), "error should mention init: {msg}");
+        assert!(msg.contains("join"), "error should mention join: {msg}");
+        assert!(
+            msg.contains(".whisperrc"),
+            "error should mention .whisperrc: {msg}"
+        );
+    }
 }
