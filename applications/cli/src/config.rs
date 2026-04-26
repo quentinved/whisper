@@ -6,6 +6,15 @@ use url::Url;
 pub const DEFAULT_URL: &str = "https://whisper.quentinvedrenne.com";
 pub const CONFIG_FILE: &str = ".whisperrc";
 
+/// Return `Err(CliError::MissingConfig)` if `.whisperrc` is absent from the current directory.
+/// Call at the top of any command that requires a project to be initialized.
+pub fn ensure_exists() -> Result<(), CliError> {
+    if !Path::new(CONFIG_FILE).exists() {
+        return Err(CliError::MissingConfig(CONFIG_FILE.to_string()));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct WhisperConfig {
     pub url: Url,
@@ -64,4 +73,46 @@ impl WhisperConfig {
 struct WhisperConfigFile {
     url: Option<String>,
     passphrase: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    // ensure_exists uses the current working directory; lock it process-wide
+    // because lib unit tests don't run with --test-threads=1.
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn ensure_exists_ok_when_config_present() {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        fs::write(CONFIG_FILE, "{}").unwrap();
+        let result = ensure_exists();
+
+        std::env::set_current_dir(prev).unwrap();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn ensure_exists_errors_when_config_missing() {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = ensure_exists();
+
+        std::env::set_current_dir(prev).unwrap();
+        match result {
+            Err(CliError::MissingConfig(name)) => assert_eq!(name, CONFIG_FILE),
+            other => panic!("expected MissingConfig, got {other:?}"),
+        }
+    }
 }
