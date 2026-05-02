@@ -99,6 +99,9 @@ pub enum CliError {
 
     #[error("Invalid URL in config: {0}")]
     ConfigInvalidUrl(#[from] url::ParseError),
+
+    #[error("Cannot prompt for value: not running interactively. Run this command in a terminal, or use `whisper-secrets import` for bulk uploads.")]
+    NotATerminal,
 }
 
 #[cfg(test)]

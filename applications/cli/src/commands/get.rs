@@ -49,7 +49,7 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
     Ok(())
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ShareTarget {
     FullUrl { base_url: Url, id: String },
     RawId(String),
@@ -82,10 +82,10 @@ impl FromStr for ShareTarget {
             Ok(ShareTarget::FullUrl { base_url, id })
         } else {
             // Validate as UUID
-            uuid::Uuid::parse_str(input).map_err(|e| {
+            uuid::Uuid::parse_str(input).map_err(|_| {
                 CliError::InvalidShareTarget(format!(
-                    "'{}' is neither a whisper URL nor a valid UUID: {}",
-                    input, e
+                    "'{}' is not a valid Whisper share link or UUID",
+                    input
                 ))
             })?;
             Ok(ShareTarget::RawId(input.to_string()))
@@ -141,5 +141,29 @@ mod tests {
     #[test]
     fn test_invalid_input() {
         assert!(ShareTarget::from_str("not-a-uuid").is_err());
+    }
+
+    #[test]
+    fn invalid_input_error_is_user_friendly() {
+        let err = ShareTarget::from_str("not a url").unwrap_err();
+        let msg = err.to_string();
+        // Must NOT leak the uuid crate's internal diagnostic.
+        assert!(
+            !msg.contains("urn:uuid"),
+            "should not leak uuid crate internals: {msg}"
+        );
+        assert!(
+            !msg.contains("invalid character"),
+            "should not leak uuid crate internals: {msg}"
+        );
+        // But should still clearly say what's wrong.
+        assert!(
+            msg.contains("not a url"),
+            "should echo the bad input: {msg}"
+        );
+        assert!(
+            msg.to_lowercase().contains("whisper") || msg.to_lowercase().contains("share"),
+            "should mention what kind of value is expected: {msg}"
+        );
     }
 }

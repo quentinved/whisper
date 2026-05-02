@@ -6,6 +6,8 @@ use tracing::debug;
 use uuid::Uuid;
 
 pub async fn run() -> Result<(), CliError> {
+    crate::config::ensure_exists()?;
+
     let entries = parse_env_file()?;
     if entries.is_empty() {
         println!(

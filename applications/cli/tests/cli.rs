@@ -701,3 +701,22 @@ async fn join_skips_if_config_exists() {
     let config = env.read_config();
     assert_ne!(config["passphrase"].as_str().unwrap(), "passphrase");
 }
+
+#[tokio::test]
+async fn pull_errors_when_no_whisperrc() {
+    // pull must short-circuit before any server access when .whisperrc is missing,
+    // so no TestEnv / postgres container is needed here.
+    let dir = TempDir::new().unwrap();
+    let prev = std::env::current_dir().unwrap();
+    std::env::set_current_dir(dir.path()).unwrap();
+
+    let result = whisper_secrets::commands::pull::run().await;
+
+    std::env::set_current_dir(prev).unwrap();
+    match result {
+        Err(whisper_secrets::error::CliError::MissingConfig(name)) => {
+            assert_eq!(name, ".whisperrc")
+        }
+        other => panic!("expected MissingConfig, got {other:?}"),
+    }
+}
