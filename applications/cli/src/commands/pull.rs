@@ -6,6 +6,8 @@ use std::path::Path;
 use tracing::debug;
 
 pub async fn run() -> Result<(), CliError> {
+    crate::config::ensure_exists()?;
+
     let entries = env_whisper::read()?;
     debug!("Found {} entries in .env.whisper", entries.len());
 

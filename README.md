@@ -93,7 +93,7 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 5. The server only stores encrypted blobs — zero knowledge of your secrets
 
 **Files:**
-- `.whisperrc` — project config (URL + passphrase). Add to `.gitignore`
+- `.whisperrc` — project config (URL + passphrase). Auto-added to `.gitignore` by `init`
 - `.env.whisper` — maps secret names to server IDs. Commit to git
 - `.env` — plaintext secrets from `pull`. Add to `.gitignore`
 

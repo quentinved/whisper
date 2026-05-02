@@ -2,6 +2,7 @@ use crate::{commands::init::share_passphrase, config::WhisperConfig, error::CliE
 use console::style;
 
 pub async fn run() -> Result<(), CliError> {
+    crate::config::ensure_exists()?;
     let config = WhisperConfig::load()?;
     let share_url = share_passphrase(&config.url, &config.passphrase).await?;
 

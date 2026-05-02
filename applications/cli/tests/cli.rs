@@ -628,12 +628,17 @@ async fn status_shows_tracked_and_untracked() {
 }
 
 #[tokio::test]
-async fn status_without_init_does_not_crash() {
+async fn status_without_init_errors_with_missing_config() {
     let env = TestEnv::start().await;
     env.enter_work_dir();
 
-    // No init — status should handle gracefully
-    whisper_secrets::commands::status::run().unwrap();
+    // No init — status should fail fast with MissingConfig (preflight)
+    match whisper_secrets::commands::status::run() {
+        Err(whisper_secrets::error::CliError::MissingConfig(name)) => {
+            assert_eq!(name, ".whisperrc")
+        }
+        other => panic!("expected MissingConfig, got {other:?}"),
+    }
 }
 
 #[tokio::test]
@@ -700,4 +705,59 @@ async fn join_skips_if_config_exists() {
     // .whisperrc should still have the original config (not overwritten)
     let config = env.read_config();
     assert_ne!(config["passphrase"].as_str().unwrap(), "passphrase");
+}
+
+// Run an async command in an empty TempDir-backed CWD and assert it short-circuits
+// with MissingConfig before touching the network. Other tests in this suite use
+// TempDir CWDs without restoring on drop, which can leave the process CWD pointing
+// at a deleted directory — fall back to temp_dir() so reading the prior CWD never
+// panics here.
+async fn assert_missing_config<F, Fut>(run: F)
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<(), whisper_secrets::error::CliError>>,
+{
+    let dir = TempDir::new().unwrap();
+    let prev = std::env::current_dir().unwrap_or_else(|_| std::env::temp_dir());
+    std::env::set_current_dir(dir.path()).unwrap();
+
+    let result = run().await;
+
+    std::env::set_current_dir(prev).unwrap();
+    match result {
+        Err(whisper_secrets::error::CliError::MissingConfig(name)) => {
+            assert_eq!(name, ".whisperrc")
+        }
+        other => panic!("expected MissingConfig, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn pull_errors_when_no_whisperrc() {
+    assert_missing_config(whisper_secrets::commands::pull::run).await;
+}
+
+#[tokio::test]
+async fn push_errors_when_no_whisperrc() {
+    assert_missing_config(|| whisper_secrets::commands::push::run(Some("FOO"))).await;
+}
+
+#[tokio::test]
+async fn rotate_errors_when_no_whisperrc() {
+    assert_missing_config(|| whisper_secrets::commands::rotate::run("FOO")).await;
+}
+
+#[tokio::test]
+async fn remove_errors_when_no_whisperrc() {
+    assert_missing_config(|| whisper_secrets::commands::remove::run("FOO")).await;
+}
+
+#[tokio::test]
+async fn import_errors_when_no_whisperrc() {
+    assert_missing_config(whisper_secrets::commands::import::run).await;
+}
+
+#[tokio::test]
+async fn invite_errors_when_no_whisperrc() {
+    assert_missing_config(whisper_secrets::commands::invite::run).await;
 }

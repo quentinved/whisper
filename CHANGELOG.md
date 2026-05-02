@@ -1,4 +1,12 @@
 # Changelog
+## 02/05/2026 - https://github.com/quentinved/whisper/pull/13
+- CLI v0.5.0: smoother first-run and CI experience
+- Every command now fails fast with a clear "run `whisper-secrets init` or `join`" message when `.whisperrc` is missing (no more cryptic config-parse errors)
+- `init` prints which server it is targeting (default vs `--url`), auto-appends `.whisperrc` to `.gitignore`, warns that the share link carries the passphrase, and tips the `ws` shortcut + import/push/share workflows
+- `push` and `rotate` detect non-interactive shells and surface a clean `NotATerminal` error instead of a generic dialoguer "IO error: not a terminal" — no more confusing CI failures
+- `status` shares the same missing-config error and shows next-step hints when zero secrets are tracked
+- Centralize the test CWD lock in `config` so unit tests across command modules don't race on `set_current_dir`
+
 ## 25/04/2026 - https://github.com/quentinved/whisper/pull/9
 - Add OSS contributor essentials: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates
 - Restructure README around two products (one-time sharing + team `.env`), add CI/npm/release/license badges, move deep architecture to `docs/architecture.md`

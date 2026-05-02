@@ -4,6 +4,8 @@ use std::path::Path;
 use tracing::debug;
 
 pub async fn run(name: &str) -> Result<(), CliError> {
+    crate::config::ensure_exists()?;
+
     let uuid = env_whisper::get(name)?.ok_or_else(|| CliError::SecretNotFound {
         name: name.to_string(),
     })?;

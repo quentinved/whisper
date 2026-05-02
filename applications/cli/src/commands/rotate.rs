@@ -3,9 +3,15 @@ use console::style;
 use tracing::debug;
 
 pub async fn run(name: &str) -> Result<(), CliError> {
+    crate::config::ensure_exists()?;
+
     let uuid = env_whisper::get(name)?.ok_or_else(|| CliError::SecretNotFound {
         name: name.to_string(),
     })?;
+
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        return Err(CliError::NotATerminal);
+    }
 
     let new_value = dialoguer::Password::new()
         .with_prompt(format!("New value for {}", name))
@@ -31,4 +37,38 @@ pub async fn run(name: &str) -> Result<(), CliError> {
         style(name).cyan()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // Sync test + block_on (see push.rs::tests for rationale).
+    #[test]
+    fn rotate_errors_with_not_a_terminal() {
+        let _g = crate::config::CWD_LOCK.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        fs::write(
+            ".whisperrc",
+            r#"{"passphrase":"test","url":"http://localhost"}"#,
+        )
+        .unwrap();
+        fs::write(".env.whisper", "FOO=00000000-0000-0000-0000-000000000000\n").unwrap();
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(run("FOO"));
+
+        std::env::set_current_dir(prev).unwrap();
+        match result {
+            Err(CliError::NotATerminal) => {}
+            other => panic!("expected NotATerminal, got {other:?}"),
+        }
+    }
 }
