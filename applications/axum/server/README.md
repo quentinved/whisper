@@ -17,12 +17,10 @@ The template system uses Askama with a layered structure:
 
 ## CSS Structure
 
-The CSS has been modularized for better maintainability:
+Two stylesheets are loaded by `layout.html`:
 
-- `css/main.css` - Main entry point that imports all other CSS files
-- `css/base.css` - Basic styling, reset, and layout
-- `css/forms.css` - Form elements and inputs
-- `css/components.css` - UI components like alerts and popups
+- `css/modern.css` - Theme tokens (light/dark via `data-theme`), forms, buttons, alerts, mode switch, structured-secret view
+- `css/pages.css` - Overrides for legal/integration pages (wider container via `:has()`, integration cards, install buttons)
 
 ## Form Submission
 

@@ -12,27 +12,54 @@
   <!-- Secret Input -->
   <div class="form-group">
     <label for="secret-input">Secret to Share</label>
-    <div class="textarea-wrapper">
-      <textarea
-        id="secret-input"
-        name="secret"
-        placeholder="Enter your secret (password, API key, note...)"
-        required
-        autocomplete="off"
-        rows="4"
-      ></textarea>
+
+    <div class="mode-switch" role="tablist" aria-label="Secret input mode">
       <button
         type="button"
-        class="textarea-toggle"
-        id="secret-toggle"
-        aria-label="Toggle visibility"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-      </button>
+        class="mode-switch-btn active"
+        role="tab"
+        aria-selected="true"
+        data-mode="freeform"
+      >Free Form</button>
+      <button
+        type="button"
+        class="mode-switch-btn"
+        role="tab"
+        aria-selected="false"
+        data-mode="multivalue"
+      >Multiple Values</button>
     </div>
+
+    <div id="freeform-view" role="tabpanel">
+      <div class="textarea-wrapper">
+        <textarea
+          id="secret-input"
+          name="secret"
+          placeholder="Enter your secret (password, API key, note...)"
+          required
+          autocomplete="off"
+          rows="4"
+        ></textarea>
+        <button
+          type="button"
+          class="textarea-toggle"
+          id="secret-toggle"
+          aria-label="Toggle visibility"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="multivalue-view" role="tabpanel" hidden>
+      <div class="kv-builder" id="kv-rows"></div>
+      <button type="button" class="kv-builder-add" id="kv-add">+ Add value</button>
+      <div id="multivalue-error" class="alert alert-error" hidden style="margin-top: 0.75rem;"></div>
+    </div>
+
     <div class="input-help">
       Encrypted with AES-256-GCM before storage
     </div>
@@ -238,6 +265,119 @@
         text.textContent = 'Encrypting...';
         submitBtn.disabled = true;
       }
+    });
+  }
+
+  // ===== Multiple Values mode =====
+  const modeSwitch = document.querySelector('.mode-switch');
+  const freeformView = document.getElementById('freeform-view');
+  const multivalueView = document.getElementById('multivalue-view');
+  const kvRows = document.getElementById('kv-rows');
+  const kvAddBtn = document.getElementById('kv-add');
+  const multivalueError = document.getElementById('multivalue-error');
+  const secretTextarea = document.getElementById('secret-input');
+
+  let currentMode = 'freeform';
+
+  function makeKvRow() {
+    const row = document.createElement('div');
+    row.className = 'kv-builder-row';
+
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.className = 'kv-builder-input kv-builder-key';
+    keyInput.placeholder = 'Key';
+    keyInput.autocomplete = 'off';
+
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'kv-builder-input kv-builder-value';
+    valueInput.placeholder = 'Value';
+    valueInput.autocomplete = 'off';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'kv-builder-remove';
+    removeBtn.setAttribute('aria-label', 'Remove this entry');
+    removeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    removeBtn.addEventListener('click', () => {
+      row.remove();
+      updateRemoveButtons();
+    });
+
+    row.appendChild(keyInput);
+    row.appendChild(valueInput);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function updateRemoveButtons() {
+    const rows = kvRows.querySelectorAll('.kv-builder-row');
+    const onlyOne = rows.length === 1;
+    rows.forEach((r) => {
+      r.querySelector('.kv-builder-remove').disabled = onlyOne;
+    });
+  }
+
+  function addRow() {
+    kvRows.appendChild(makeKvRow());
+    updateRemoveButtons();
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    const isFreeform = mode === 'freeform';
+    freeformView.hidden = !isFreeform;
+    multivalueView.hidden = isFreeform;
+    secretTextarea.required = isFreeform;
+    if (multivalueError) multivalueError.hidden = true;
+    modeSwitch.querySelectorAll('.mode-switch-btn').forEach((btn) => {
+      const active = btn.dataset.mode === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+  }
+
+  if (modeSwitch && kvRows) {
+    addRow(); // start with one empty row
+    modeSwitch.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mode-switch-btn');
+      if (!btn) return;
+      setMode(btn.dataset.mode);
+    });
+    kvAddBtn.addEventListener('click', addRow);
+  }
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      if (currentMode !== 'multivalue') return;
+      const rows = kvRows.querySelectorAll('.kv-builder-row');
+      const obj = {};
+      const seen = new Set();
+      let duplicate = null;
+      rows.forEach((row) => {
+        const key = row.querySelector('.kv-builder-key').value.trim();
+        const value = row.querySelector('.kv-builder-value').value;
+        if (!key || value === '') return;
+        if (seen.has(key)) { duplicate = key; return; }
+        seen.add(key);
+        obj[key] = value;
+      });
+
+      const showError = (msg) => {
+        multivalueError.textContent = msg;
+        multivalueError.hidden = false;
+        e.preventDefault();
+        const spinner = document.getElementById('submit-spinner');
+        const text = submitBtn.querySelector('span');
+        if (spinner) spinner.style.display = 'none';
+        if (text) text.textContent = 'Create Secure Link';
+        submitBtn.disabled = false;
+      };
+
+      if (duplicate) return showError('Duplicate key: "' + duplicate + '". Each key must be unique.');
+      if (Object.keys(obj).length === 0) return showError('Add at least one filled key/value pair.');
+      secretTextarea.value = JSON.stringify(obj);
     });
   }
 
