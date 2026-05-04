@@ -12,29 +12,54 @@
   <!-- Secret Input -->
   <div class="form-group">
     <label for="secret-input">Secret to Share</label>
-    <div class="textarea-wrapper">
-      <textarea
-        id="secret-input"
-        name="secret"
-        placeholder="Enter your secret (password, API key, note...)"
-        required
-        autocomplete="off"
-        rows="4"
-      ></textarea>
+
+    <div class="mode-switch" role="tablist" aria-label="Secret input mode">
       <button
         type="button"
-        class="textarea-toggle"
-        id="secret-toggle"
-        aria-label="Toggle visibility"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-      </button>
+        class="mode-switch-btn active"
+        role="tab"
+        aria-selected="true"
+        data-mode="freeform"
+      >Free Form</button>
+      <button
+        type="button"
+        class="mode-switch-btn"
+        role="tab"
+        aria-selected="false"
+        data-mode="multivalue"
+      >Multiple Values</button>
     </div>
-    <div class="input-help">
-      Encrypted with AES-256-GCM before storage
+
+    <div id="freeform-view" role="tabpanel">
+      <div class="textarea-wrapper">
+        <textarea
+          id="secret-input"
+          name="secret"
+          placeholder="Enter your secret (password, API key, note...)"
+          required
+          autocomplete="off"
+          rows="4"
+        ></textarea>
+        <button
+          type="button"
+          class="textarea-toggle"
+          id="secret-toggle"
+          aria-label="Toggle visibility"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="multivalue-view" role="tabpanel" hidden>
+      <div class="kv-builder" id="kv-rows"></div>
+      <button type="button" class="kv-builder-add" id="kv-add">+ Add value</button>
+      <div id="kv-sections"></div>
+      <button type="button" class="kv-builder-add kv-builder-add-section" id="kv-add-section">+ Add section</button>
+      <div id="multivalue-error" class="alert alert-error" hidden style="margin-top: 0.75rem;"></div>
     </div>
   </div>
 
@@ -238,6 +263,196 @@
         text.textContent = 'Encrypting...';
         submitBtn.disabled = true;
       }
+    });
+  }
+
+  // ===== Multiple Values mode =====
+  const modeSwitch = document.querySelector('.mode-switch');
+  const freeformView = document.getElementById('freeform-view');
+  const multivalueView = document.getElementById('multivalue-view');
+  const kvRows = document.getElementById('kv-rows');
+  const kvAddBtn = document.getElementById('kv-add');
+  const kvSections = document.getElementById('kv-sections');
+  const kvAddSectionBtn = document.getElementById('kv-add-section');
+  const multivalueError = document.getElementById('multivalue-error');
+  const secretTextarea = document.getElementById('secret-input');
+
+  let currentMode = 'freeform';
+
+  const X_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+  function updateRemoveButtonsIn(container) {
+    const rows = container.querySelectorAll(':scope > .kv-builder-row');
+    const onlyOne = rows.length === 1;
+    rows.forEach((r) => {
+      r.querySelector('.kv-builder-remove').disabled = onlyOne;
+    });
+  }
+
+  function makeKvRow() {
+    const row = document.createElement('div');
+    row.className = 'kv-builder-row';
+
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.className = 'kv-builder-input kv-builder-key';
+    keyInput.placeholder = 'Key';
+    keyInput.autocomplete = 'off';
+
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'kv-builder-input kv-builder-value';
+    valueInput.placeholder = 'Value';
+    valueInput.autocomplete = 'off';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'kv-builder-remove';
+    removeBtn.setAttribute('aria-label', 'Remove this entry');
+    removeBtn.innerHTML = X_SVG;
+    removeBtn.addEventListener('click', () => {
+      const parent = row.parentElement;
+      row.remove();
+      if (parent) updateRemoveButtonsIn(parent);
+    });
+
+    row.appendChild(keyInput);
+    row.appendChild(valueInput);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function addRowTo(container, opts) {
+    const row = makeKvRow();
+    container.appendChild(row);
+    updateRemoveButtonsIn(container);
+    if (!opts || opts.focus !== false) {
+      row.querySelector('.kv-builder-key').focus();
+    }
+  }
+
+  function makeSection() {
+    const block = document.createElement('div');
+    block.className = 'kv-section-block';
+
+    const header = document.createElement('div');
+    header.className = 'kv-section-header';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'kv-builder-input kv-section-name-input';
+    nameInput.placeholder = 'Section name (e.g. database)';
+    nameInput.autocomplete = 'off';
+
+    const removeSectionBtn = document.createElement('button');
+    removeSectionBtn.type = 'button';
+    removeSectionBtn.className = 'kv-builder-remove';
+    removeSectionBtn.setAttribute('aria-label', 'Remove this section');
+    removeSectionBtn.innerHTML = X_SVG;
+    removeSectionBtn.addEventListener('click', () => block.remove());
+
+    header.appendChild(nameInput);
+    header.appendChild(removeSectionBtn);
+
+    const rows = document.createElement('div');
+    rows.className = 'kv-section-rows kv-builder';
+
+    const addRowBtn = document.createElement('button');
+    addRowBtn.type = 'button';
+    addRowBtn.className = 'kv-builder-add';
+    addRowBtn.textContent = '+ Add value';
+    addRowBtn.addEventListener('click', () => addRowTo(rows));
+
+    block.appendChild(header);
+    block.appendChild(rows);
+    block.appendChild(addRowBtn);
+
+    addRowTo(rows, { focus: false }); // start with one row, but keep focus on the section name
+    return block;
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    const isFreeform = mode === 'freeform';
+    freeformView.hidden = !isFreeform;
+    multivalueView.hidden = isFreeform;
+    secretTextarea.required = isFreeform;
+    if (multivalueError) multivalueError.hidden = true;
+    modeSwitch.querySelectorAll('.mode-switch-btn').forEach((btn) => {
+      const active = btn.dataset.mode === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+  }
+
+  if (modeSwitch && kvRows) {
+    addRowTo(kvRows, { focus: false }); // seed without stealing focus
+    modeSwitch.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mode-switch-btn');
+      if (!btn) return;
+      setMode(btn.dataset.mode);
+    });
+    kvAddBtn.addEventListener('click', () => addRowTo(kvRows));
+    kvAddSectionBtn.addEventListener('click', () => {
+      const section = makeSection();
+      kvSections.appendChild(section);
+      section.querySelector('.kv-section-name-input').focus();
+    });
+  }
+
+  function collectRowsIn(container) {
+    const obj = {};
+    let duplicate = null;
+    container.querySelectorAll(':scope > .kv-builder-row').forEach((row) => {
+      const key = row.querySelector('.kv-builder-key').value.trim();
+      const value = row.querySelector('.kv-builder-value').value;
+      if (!key || value === '') return;
+      if (key in obj) { duplicate = duplicate || key; return; }
+      obj[key] = value;
+    });
+    return { obj, duplicate };
+  }
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      if (currentMode !== 'multivalue') return;
+
+      const showError = (msg) => {
+        multivalueError.textContent = msg;
+        multivalueError.hidden = false;
+        e.preventDefault();
+        const spinner = document.getElementById('submit-spinner');
+        const text = submitBtn.querySelector('span');
+        if (spinner) spinner.style.display = 'none';
+        if (text) text.textContent = 'Create Secure Link';
+        submitBtn.disabled = false;
+      };
+
+      const top = collectRowsIn(kvRows);
+      if (top.duplicate) return showError('Duplicate key: "' + top.duplicate + '". Each key must be unique.');
+
+      const obj = { ...top.obj };
+      const seenSectionNames = new Set();
+      const sectionBlocks = kvSections.querySelectorAll('.kv-section-block');
+
+      for (const block of sectionBlocks) {
+        const nameInput = block.querySelector('.kv-section-name-input');
+        const name = nameInput.value.trim();
+        const rowsContainer = block.querySelector('.kv-section-rows');
+        const section = collectRowsIn(rowsContainer);
+
+        if (Object.keys(section.obj).length === 0 && !name) continue; // empty + unnamed: silently drop
+        if (!name) return showError('Section name is required (or remove the empty section).');
+        if (name in obj || seenSectionNames.has(name)) return showError('Duplicate name: "' + name + '". Section names cannot collide with top-level keys or other sections.');
+        if (section.duplicate) return showError('Duplicate key in section "' + name + '": "' + section.duplicate + '".');
+        if (Object.keys(section.obj).length === 0) continue; // named but empty: silently drop
+
+        seenSectionNames.add(name);
+        obj[name] = section.obj;
+      }
+
+      if (Object.keys(obj).length === 0) return showError('Add at least one filled key/value pair.');
+      secretTextarea.value = JSON.stringify(obj);
     });
   }
 
