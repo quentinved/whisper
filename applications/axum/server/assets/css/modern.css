@@ -1182,6 +1182,107 @@ input:focus:not(:focus-visible) {
   border-style: solid;
 }
 
+.kv-builder-add-section {
+  margin-top: 1rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  border-style: solid;
+  border-width: 1px;
+}
+
+.kv-builder-add-section:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  border-style: solid;
+}
+
+/* Sections (named groupings of key/value rows) */
+.kv-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.75rem;
+  padding: 0.875rem 0.875rem 1rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.kv-section-header {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.kv-section-name-input {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+  background: transparent;
+  border-color: transparent;
+  transition: all var(--transition);
+}
+
+.kv-section-name-input:hover {
+  background: var(--bg-input);
+  border-color: var(--border-hover);
+}
+
+.kv-section-name-input:focus {
+  background: var(--bg-input);
+  border-color: var(--border-focus);
+}
+
+.kv-section-name-input::placeholder {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.kv-section-header .kv-builder-remove {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.kv-section-header .kv-builder-remove:hover:not(:disabled) {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--bg-card-solid);
+}
+
+.kv-section-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Subtle entrance animation for new rows + sections */
+@keyframes kv-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kv-builder-row,
+.kv-section-block {
+  animation: kv-enter 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kv-builder-row,
+  .kv-section-block {
+    animation: none;
+  }
+}
+
 /* ===== Structured Secret View (recipient: Fields tab) ===== */
 #structured-rows {
   display: flex;
