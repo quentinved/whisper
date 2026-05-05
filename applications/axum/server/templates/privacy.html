@@ -6,7 +6,7 @@
 {% block content %}
 <div class="legal-content">
   <h2 style="margin-top: 0;">Privacy Policy</h2>
-  <p class="legal-date">Last updated: April 5, 2026</p>
+  <p class="legal-date">Last updated: May 5, 2026</p>
 
   <h2>What Whisper Does</h2>
   <p>Whisper is an encrypted secret sharing service. It allows users to share passwords, API keys, and other sensitive text via encrypted, time-limited, optionally self-destructing links.</p>
@@ -17,7 +17,7 @@
     <li><strong>Secret content</strong> &mdash; encrypted at rest with AES-256-GCM. We cannot read your secrets. They are automatically deleted when they expire or after the first retrieval if self-destruct is enabled.</li>
     <li><strong>Slack metadata</strong> &mdash; when using the /whisper slash command, Slack sends us your user ID, username, team ID, and channel ID. We use this only to process the command and do not store it.</li>
   </ul>
-  <p><strong>Analytics</strong> &mdash; We use Google Analytics 4 and Mixpanel to collect anonymous usage data (page views, feature usage). No personal information is tied to these events. Analytics and session recording are disabled on pages that accept or reveal secret content.</p>
+  <p><strong>Analytics</strong> &mdash; We use Google Analytics 4 on all pages to count visitors and feature usage. URLs are sanitized in your browser before being sent to GA4 &mdash; all query parameters (including the secret IDs in share links) are stripped, so GA4 only ever sees the page path (e.g. <code>/get_secret</code>, never <code>/get_secret?shared_secret_id=...</code>). Mixpanel and session recording are disabled on pages that accept or reveal secret content.</p>
 
   <p>We do <strong>not</strong> collect:</p>
   <ul>
@@ -51,7 +51,7 @@
   <h2>Third Parties</h2>
   <p>Whisper uses the following third-party services:</p>
   <ul>
-    <li><strong>Google Analytics 4</strong> &mdash; anonymous usage analytics</li>
+    <li><strong>Google Analytics 4</strong> &mdash; anonymous visitor counts and page-level analytics; URLs are stripped of query parameters before being sent</li>
     <li><strong>Mixpanel</strong> &mdash; product analytics and session recording on non-secret pages only</li>
     <li><strong>Slack API</strong> &mdash; to process /whisper slash commands (integration only)</li>
   </ul>

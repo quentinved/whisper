@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block analytics %}{% endblock %}
+{% block mixpanel %}{% endblock %}
 {% block content %}
 {% if shared_secret_id.is_none() && error_shared_secret.is_none() %}
 <form
