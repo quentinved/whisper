@@ -1,4 +1,12 @@
 # Changelog
+## 23/06/2026 - https://github.com/quentinved/whisper/pull/19
+- Zero-knowledge one-time secrets: web and CLI now encrypt in the browser/terminal (AES-256-GCM), the key rides only in the link's `#` fragment, and the server stores ciphertext it can't read — new `POST /v1/ephemeral` endpoint and `client_encrypted` column
+- Click-to-reveal page: secrets are fetched and decrypted only on user action, so link previews and crawlers can't burn a self-destruct secret (drops the user-agent bot sniffing)
+- Slack and Discord encrypt before storing; Raycast extension goes fully zero-knowledge with a legacy fallback and a new Multiple Values form
+- SEO: per-page canonical/OpenGraph/Twitter tags built from the configured base URL, `SoftwareApplication` JSON-LD, a 1200×630 share banner with large card, and zero-knowledge copy
+- Wider secret card on desktop, inline page JS moved into asset files, dead assets/CSS removed, `aes_key.bin` gitignored
+- Fix the `--url-postgresql` flag typo across README/CONTRIBUTING/CLAUDE docs
+
 ## 02/05/2026 - https://github.com/quentinved/whisper/pull/13
 - CLI v0.5.0: smoother first-run and CI experience
 - Every command now fails fast with a clear "run `whisper-secrets init` or `join`" message when `.whisperrc` is missing (no more cryptic config-parse errors)
