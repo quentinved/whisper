@@ -952,6 +952,12 @@ input[type="checkbox"]:checked::after {
   height: 20px;
 }
 
+/* The UA `[hidden] { display: none }` rule does not apply to inline SVG, so
+   the `hidden` attribute alone won't hide an icon. Hide it explicitly. */
+svg[hidden] {
+  display: none;
+}
+
 /* ===== Select Styling ===== */
 select {
   appearance: none;
