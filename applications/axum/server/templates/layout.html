@@ -4,27 +4,30 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Whisper - Built to Disappear.{% endblock %}</title>
-    <meta
-      name="description"
-      content="{% block meta_description %}Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption.{% endblock %}"
-    />
-    {% block canonical %}{% endblock %}
+    <title>{{ seo.title }}</title>
+    <meta name="description" content="{{ seo.description }}" />
+    <link rel="canonical" href="{{ seo.canonical }}" />
+    {% if let Some(robots) = seo.robots.as_ref() %}<meta name="robots" content="{{ robots }}" />{% endif %}
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Whisper" />
-    <meta property="og:title" content="Whisper - Built to Disappear." />
-    <meta property="og:description" content="Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption." />
-    <meta property="og:image" content="/assets/logo.svg" />
+    <meta property="og:title" content="{{ seo.title }}" />
+    <meta property="og:description" content="{{ seo.description }}" />
+    <meta property="og:url" content="{{ seo.canonical }}" />
+    <meta property="og:image" content="{{ seo.og_image }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Whisper - Built to Disappear." />
-    <meta name="twitter:description" content="Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ seo.title }}" />
+    <meta name="twitter:description" content="{{ seo.description }}" />
+    <meta name="twitter:image" content="{{ seo.og_image }}" />
 
     <!-- JSON-LD -->
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Whisper","description":"Share secrets securely with encrypted, time-limited, self-destructing links. AES-256 encryption.","url":"https://whisper.quentinvedrenne.com"}</script>
+    <script type="application/ld+json">{{ seo.json_ld_website|safe }}</script>
+    <script type="application/ld+json">{{ seo.json_ld_software|safe }}</script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
@@ -32,6 +35,8 @@
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
@@ -131,12 +136,7 @@
 
       <!-- Footer -->
       <footer class="footer">
-        <a
-          href="https://github.com/RustCrypto/AEADs/tree/master/aes-gcm"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="security-badge"
-        >
+        <a href="/docs/secrets" class="security-badge">
           <svg
             width="12"
             height="12"
@@ -148,7 +148,7 @@
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
-          AES-256 Encrypted
+          AES-256-GCM · End-to-End
         </a>
         <nav class="footer-links">
           <a href="/integrations">Integrations</a>

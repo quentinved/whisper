@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 use whisper_core::{
-    commands::shared_secret::get_secret_by_id::GetSecretById,
+    commands::shared_secret::get_secret_by_id::{GetSecretById, RetrievedSecret},
     values_object::shared_secret::secret_id::SecretId,
 };
 
@@ -32,6 +32,7 @@ pub async fn get_secret_by_id(
                     id: "".to_string(),
                     secret: "".to_string(),
                     self_destruct: false,
+                    client_encrypted: false,
                 }),
             ))
         }
@@ -44,14 +45,28 @@ pub async fn get_secret_by_id(
         serde_json::Value::Null,
     );
 
-    Ok((
-        StatusCode::OK,
-        Json(Output {
+    let output = match shared_secret {
+        RetrievedSecret::Plain {
+            secret,
+            self_destruct,
+        } => Output {
             id: shared_secret_id.value().to_string(),
-            secret: shared_secret.0,
-            self_destruct: shared_secret.1,
-        }),
-    ))
+            secret,
+            self_destruct,
+            client_encrypted: false,
+        },
+        RetrievedSecret::ClientEncrypted {
+            payload,
+            self_destruct,
+        } => Output {
+            id: shared_secret_id.value().to_string(),
+            secret: base64_url::encode(&payload),
+            self_destruct,
+            client_encrypted: true,
+        },
+    };
+
+    Ok((StatusCode::OK, Json(output)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +77,10 @@ pub struct GetSecretQuery {
 #[derive(Debug, Serialize, Clone)]
 pub struct Output {
     id: String,
+    /// Plaintext when `client_encrypted` is false; base64url-no-pad
+    /// `nonce[12] ‖ ciphertext` when true (only the link's `#k=` fragment
+    /// key can decrypt it — the server has none).
     secret: String,
     self_destruct: bool,
+    client_encrypted: bool,
 }

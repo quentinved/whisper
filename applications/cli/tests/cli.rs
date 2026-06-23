@@ -136,6 +136,32 @@ impl TestEnv {
     }
 }
 
+/// Helper: unix timestamp `secs` seconds from now (secret expiration).
+fn expires_in(secs: i64) -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + secs
+}
+
+/// Creates a zero-knowledge ephemeral secret the way the CLI does (encrypt
+/// locally, POST v1, key in the link fragment). Returns the share URL and the
+/// base64url key for decryption assertions.
+async fn create_zk_ephemeral(
+    client: &WhisperClient,
+    plaintext: &str,
+    expiration: i64,
+    self_destruct: bool,
+) -> (Url, String) {
+    let (key, payload) = whisper_secrets::crypto::encrypt_ephemeral(plaintext).unwrap();
+    let id = client
+        .create_ephemeral_secret_v1(&payload, expiration, self_destruct)
+        .await
+        .unwrap();
+    (client.ephemeral_share_url(&id, &key), key)
+}
+
 #[tokio::test]
 async fn init_creates_config_and_shareable_link() {
     let env = TestEnv::start().await;
@@ -154,15 +180,8 @@ async fn init_creates_config_and_shareable_link() {
     // Test the ephemeral secret sharing flow:
     // Create a new ephemeral secret with the passphrase
     let client = WhisperClient::new(&env.server_url);
-    let expiration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
-        + 3600;
-    let share_url = client
-        .create_ephemeral_secret(passphrase, expiration, false)
-        .await
-        .unwrap();
+    let expiration = expires_in(3600);
+    let (share_url, key) = create_zk_ephemeral(&client, passphrase, expiration, false).await;
 
     // Extract secret ID from share URL
     let secret_id = share_url
@@ -172,15 +191,28 @@ async fn init_creates_config_and_shareable_link() {
         .1
         .to_string();
 
-    // First GET — should succeed
-    let result1 = client.get_ephemeral_secret(&secret_id).await.unwrap();
-    assert!(result1.is_some());
-    assert_eq!(result1.unwrap().secret, passphrase);
+    // First GET — should succeed (server returns the encrypted payload)
+    let result1 = client
+        .get_ephemeral_secret(&secret_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result1.client_encrypted);
+    assert_eq!(
+        whisper_secrets::crypto::decrypt_ephemeral(&key, &result1.secret).unwrap(),
+        passphrase
+    );
 
     // Second GET — should still succeed (not self-destruct)
-    let result2 = client.get_ephemeral_secret(&secret_id).await.unwrap();
-    assert!(result2.is_some());
-    assert_eq!(result2.unwrap().secret, passphrase);
+    let result2 = client
+        .get_ephemeral_secret(&secret_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        whisper_secrets::crypto::decrypt_ephemeral(&key, &result2.secret).unwrap(),
+        passphrase
+    );
 }
 
 #[tokio::test]
@@ -344,15 +376,9 @@ async fn share_and_get_secret() {
 
     // Create ephemeral secret via WhisperClient (bypasses dialoguer prompt in share::run)
     let client = WhisperClient::new(&env.server_url);
-    let expiration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
-        + 3600;
-    let share_url = client
-        .create_ephemeral_secret("ephemeral-secret-value", expiration, false)
-        .await
-        .unwrap();
+    let expiration = expires_in(3600);
+    let (share_url, key) =
+        create_zk_ephemeral(&client, "ephemeral-secret-value", expiration, false).await;
 
     // Extract secret ID and retrieve via WhisperClient
     let secret_id = share_url
@@ -362,9 +388,16 @@ async fn share_and_get_secret() {
         .1
         .to_string();
 
-    let result = client.get_ephemeral_secret(&secret_id).await.unwrap();
-    assert!(result.is_some());
-    assert_eq!(result.unwrap().secret, "ephemeral-secret-value");
+    let result = client
+        .get_ephemeral_secret(&secret_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result.client_encrypted);
+    assert_eq!(
+        whisper_secrets::crypto::decrypt_ephemeral(&key, &result.secret).unwrap(),
+        "ephemeral-secret-value"
+    );
 }
 
 #[tokio::test]
@@ -463,17 +496,11 @@ async fn self_destruct_secret_gone_after_first_get() {
     env.enter_work_dir();
 
     let client = WhisperClient::new(&env.server_url);
-    let expiration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
-        + 3600;
+    let expiration = expires_in(3600);
 
     // Create with self_destruct = true
-    let share_url = client
-        .create_ephemeral_secret("burn-after-reading", expiration, true)
-        .await
-        .unwrap();
+    let (share_url, key) =
+        create_zk_ephemeral(&client, "burn-after-reading", expiration, true).await;
 
     let secret_id = share_url
         .query_pairs()
@@ -483,13 +510,117 @@ async fn self_destruct_secret_gone_after_first_get() {
         .to_string();
 
     // First GET — should succeed
-    let result = client.get_ephemeral_secret(&secret_id).await.unwrap();
-    assert!(result.is_some());
-    assert_eq!(result.unwrap().secret, "burn-after-reading");
+    let result = client
+        .get_ephemeral_secret(&secret_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result.client_encrypted);
+    assert_eq!(
+        whisper_secrets::crypto::decrypt_ephemeral(&key, &result.secret).unwrap(),
+        "burn-after-reading"
+    );
 
     // Second GET — should be gone (self-destructed)
     let result = client.get_ephemeral_secret(&secret_id).await.unwrap();
     assert!(result.is_none());
+}
+
+#[tokio::test]
+async fn zero_knowledge_ephemeral_roundtrip_and_self_destruct() {
+    let env = TestEnv::start().await;
+    let client = WhisperClient::new(&env.server_url);
+
+    let (key, payload) = whisper_secrets::crypto::encrypt_ephemeral("zk-secret-value").unwrap();
+    let expiration = expires_in(3600);
+
+    let id = client
+        .create_ephemeral_secret_v1(&payload, expiration, true)
+        .await
+        .unwrap();
+
+    let resp = client.get_ephemeral_secret(&id).await.unwrap().unwrap();
+    assert!(resp.client_encrypted, "flag must round-trip");
+    assert!(resp.self_destruct);
+    assert_ne!(
+        resp.secret, "zk-secret-value",
+        "server must never return plaintext"
+    );
+
+    let plaintext = whisper_secrets::crypto::decrypt_ephemeral(&key, &resp.secret).unwrap();
+    assert_eq!(plaintext, "zk-secret-value");
+
+    // self-destruct: consumed on first read
+    assert!(client.get_ephemeral_secret(&id).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn legacy_form_created_secret_reports_not_client_encrypted() {
+    let env = TestEnv::start().await;
+    let client = WhisperClient::new(&env.server_url);
+
+    // Simulate the legacy form-POST path (Raycast/Discord still use it until
+    // their updates land): plaintext goes to the server, which encrypts at rest.
+    let http = reqwest::Client::new();
+    let expiration = expires_in(3600);
+    let response = http
+        .post(env.server_url.join("secret").unwrap())
+        .form(&[
+            ("secret", "legacy-plaintext"),
+            ("expiration", &expiration.to_string()),
+            ("self_destruct", "false"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    // reqwest follows the 303 redirect; the final URL carries the id.
+    let id = response
+        .url()
+        .query_pairs()
+        .find(|(k, _)| k == "shared_secret_id")
+        .map(|(_, v)| v.to_string())
+        .expect("redirect must carry the id");
+
+    let resp = client.get_ephemeral_secret(&id).await.unwrap().unwrap();
+    assert!(!resp.client_encrypted);
+    assert_eq!(resp.secret, "legacy-plaintext");
+}
+
+#[tokio::test]
+async fn join_without_fragment_key_fails_with_missing_fragment_key() {
+    let env = TestEnv::start().await;
+    let client = WhisperClient::new(&env.server_url);
+
+    let expiration = expires_in(3600);
+    let (share_url, _key) =
+        create_zk_ephemeral(&client, "team-passphrase", expiration, false).await;
+
+    // Simulate a link whose #k= fragment got stripped (e.g. truncated by a chat app).
+    let mut stripped_url = share_url.clone();
+    stripped_url.set_fragment(None);
+    assert!(stripped_url.fragment().is_none());
+
+    let secret_id = stripped_url
+        .query_pairs()
+        .find(|(k, _)| k == "shared_secret_id")
+        .unwrap()
+        .1
+        .to_string();
+
+    // The fetch itself succeeds — the server hands back the encrypted payload...
+    let resp = client
+        .get_ephemeral_secret(&secret_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(resp.client_encrypted);
+
+    // ...but without the fragment key, resolution must fail loudly.
+    let result = whisper_secrets::client::resolve_ephemeral_plaintext(resp, None);
+    assert!(matches!(
+        result,
+        Err(whisper_secrets::error::CliError::MissingFragmentKey)
+    ));
 }
 
 #[tokio::test]
@@ -563,17 +694,11 @@ async fn join_from_share_link_and_pull() {
     let config = env.read_config();
     let passphrase = config["passphrase"].as_str().unwrap().to_string();
 
-    // Create a share link with the passphrase (simulates what init does)
+    // Create a share link with the passphrase (simulates what init does:
+    // zero-knowledge payload, decryption key in the #k= fragment)
     let client = WhisperClient::new(&env.server_url);
-    let expiration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
-        + 3600;
-    let share_url = client
-        .create_ephemeral_secret(&passphrase, expiration, false)
-        .await
-        .unwrap();
+    let expiration = expires_in(3600);
+    let (share_url, _key) = create_zk_ephemeral(&client, &passphrase, expiration, false).await;
 
     // === Dev2: clone repo (simulate by copying .env.whisper), then join ===
     let dir2 = env.create_second_dir();
@@ -688,15 +813,8 @@ async fn join_skips_if_config_exists() {
 
     // Create a share link
     let client = WhisperClient::new(&env.server_url);
-    let expiration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
-        + 3600;
-    let share_url = client
-        .create_ephemeral_secret("passphrase", expiration, false)
-        .await
-        .unwrap();
+    let expiration = expires_in(3600);
+    let (share_url, _key) = create_zk_ephemeral(&client, "passphrase", expiration, false).await;
 
     // Join should skip because .whisperrc already exists
     let target: ShareTarget = share_url.as_str().parse().unwrap();

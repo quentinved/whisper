@@ -212,6 +212,68 @@ async fn self_destruct_deletes_after_first_read() {
 }
 
 #[tokio::test]
+async fn create_ephemeral_v1_roundtrips_payload_verbatim() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+
+    // base64url-no-pad `nonce[12] ‖ ciphertext` as produced by client-side
+    // encryption — the server must store and return it verbatim, never decode
+    // it into a plaintext.
+    let payload = base64_url::encode(&[0x42u8; 12 + 21 + 16]);
+
+    let resp = server
+        .client
+        .post(server.url("/v1/ephemeral"))
+        .json(&serde_json::json!({
+            "payload": payload,
+            "expiration": expiration,
+            "self_destruct": false,
+        }))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let id = body["id"].as_str().unwrap().to_string();
+    assert!(!id.is_empty());
+
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", id)))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["secret"], payload, "payload must round-trip verbatim");
+    assert_eq!(body["client_encrypted"], true);
+    assert_eq!(body["self_destruct"], false);
+    assert_eq!(body["id"], id);
+}
+
+#[tokio::test]
+async fn create_ephemeral_v1_rejects_invalid_base64_payload() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+
+    let resp = server
+        .client
+        .post(server.url("/v1/ephemeral"))
+        .json(&serde_json::json!({
+            "payload": "not base64url!!!",
+            "expiration": expiration,
+            "self_destruct": false,
+        }))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn create_secret_too_large() {
     let server = TestServer::start().await;
     let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
@@ -235,5 +297,78 @@ async fn create_secret_too_large() {
         resp.status().is_client_error() || resp.status().is_server_error(),
         "expected error status, got: {}",
         resp.status()
+    );
+}
+
+#[tokio::test]
+async fn homepage_has_absolute_seo_tags() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(
+        body.contains(r#"<link rel="canonical" href="http://localhost/" />"#),
+        "missing homepage canonical"
+    );
+    assert!(
+        body.contains(r#"content="http://localhost/assets/og-banner.png""#),
+        "og:image must be an absolute PNG URL"
+    );
+    assert!(
+        body.contains(r#"property="og:url" content="http://localhost/""#),
+        "missing og:url"
+    );
+    assert!(
+        body.contains(r#""@type":"SoftwareApplication""#),
+        "missing SoftwareApplication JSON-LD"
+    );
+    assert!(
+        body.contains("Zero-Knowledge"),
+        "homepage title should carry the zero-knowledge copy"
+    );
+}
+
+#[tokio::test]
+async fn integrations_page_has_its_own_canonical() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/integrations"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(
+        body.contains(r#"<link rel="canonical" href="http://localhost/integrations" />"#),
+        "integrations page must have its own canonical (not the homepage's)"
+    );
+}
+
+#[tokio::test]
+async fn get_secret_shell_is_noindex() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/get_secret?shared_secret_id=00000000-0000-0000-0000-000000000000"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(
+        body.contains(r#"<meta name="robots" content="noindex, nofollow" />"#),
+        "secret reveal page must stay noindex"
     );
 }

@@ -1,3 +1,4 @@
+use crate::html_templates::seo::{SeoMeta, HOME_DESCRIPTION, HOME_TITLE};
 use crate::{app_state::AppState, error::CustomError, html_templates::index::IndexHtml};
 use axum::extract::{Query, State};
 use std::sync::Arc;
@@ -6,6 +7,7 @@ pub async fn index(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<Params>,
 ) -> Result<IndexHtml, CustomError> {
+    let seo = SeoMeta::new(app_state.url(), "/", HOME_TITLE, HOME_DESCRIPTION);
     match params.shared_secret_id {
         Some(shared_secret_id) => {
             let url = format!(
@@ -13,7 +15,7 @@ pub async fn index(
                 app_state.url(),
                 shared_secret_id
             );
-            Ok(IndexHtml::new(Some(url), None))
+            Ok(IndexHtml::new(seo, Some(url), None))
         }
         None => match params.error {
             Some(b64_err_msg) => {
@@ -25,9 +27,9 @@ pub async fn index(
                     String::from_utf8(err_msg_bytes).map_err(|_| CustomError::InternalError {
                         reason: "Failed to convert error message to UTF-8".to_string(),
                     })?;
-                Ok(IndexHtml::new(None, Some(err_msg)))
+                Ok(IndexHtml::new(seo, None, Some(err_msg)))
             }
-            None => Ok(IndexHtml::new(None, None)),
+            None => Ok(IndexHtml::new(seo, None, None)),
         },
     }
 }

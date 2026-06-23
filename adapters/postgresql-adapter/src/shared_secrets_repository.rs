@@ -28,8 +28,8 @@ impl SharedSecretRepository for PostgreSQLSharedSecretsRepository {
         let postgresql_secret: PostgreSQLSharedSecret = shared_secret.into();
         tracing::debug!(secret_id = %secret_id, "saving secret to database");
         let query = "
-            INSERT INTO secrets (id, cypher, nonce, expiration, self_destruct)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO secrets (id, cypher, nonce, expiration, self_destruct, client_encrypted)
+            VALUES ($1, $2, $3, $4, $5, $6)
         ";
 
         if let Err(error) = sqlx::query(query)
@@ -38,6 +38,7 @@ impl SharedSecretRepository for PostgreSQLSharedSecretsRepository {
             .bind(postgresql_secret.nonce.as_slice())
             .bind(postgresql_secret.expiration)
             .bind(postgresql_secret.self_destruct)
+            .bind(postgresql_secret.client_encrypted)
             .execute(&self.pool)
             .await
         {

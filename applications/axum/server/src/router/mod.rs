@@ -1,11 +1,4 @@
-use crate::{
-    app_state::AppState,
-    html_templates::{
-        docs::DocsSecretsHtml,
-        integrations::IntegrationsHtml,
-        legal::{PrivacyHtml, TermsHtml},
-    },
-};
+use crate::app_state::AppState;
 use axum::{
     extract::{Path, State},
     http::{header, HeaderValue, StatusCode},
@@ -14,7 +7,10 @@ use axum::{
     Router,
 };
 use rust_embed::Embed;
-use secret_api::{create_secret::create_secret, get_secret_by_id::get_secret_by_id};
+use secret_api::{
+    create_ephemeral::create_ephemeral, create_secret::create_secret,
+    get_secret_by_id::get_secret_by_id,
+};
 use std::sync::Arc;
 use tower_http::set_header::SetResponseHeaderLayer;
 
@@ -81,15 +77,16 @@ async fn version() -> &'static str {
 pub fn app(app_state: Arc<AppState>) -> Router {
     let secret_router = Router::new()
         .route("/secret", post(create_secret))
+        .route("/v1/ephemeral", post(create_ephemeral))
         .route("/secret/:shared_secret_id", get(get_secret_by_id))
         .route("/", get(views::index::index))
         .route("/get_secret", get(views::get_secret::get_secret))
         .route("/health", get(health))
         .route("/version", get(version))
-        .route("/privacy", get(|| async { PrivacyHtml }))
-        .route("/terms", get(|| async { TermsHtml }))
-        .route("/integrations", get(|| async { IntegrationsHtml }))
-        .route("/docs/secrets", get(|| async { DocsSecretsHtml }))
+        .route("/privacy", get(views::static_pages::privacy))
+        .route("/terms", get(views::static_pages::terms))
+        .route("/integrations", get(views::static_pages::integrations))
+        .route("/docs/secrets", get(views::static_pages::docs_secrets))
         .route(
             "/contact",
             get(|| async {

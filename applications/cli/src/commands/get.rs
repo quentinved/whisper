@@ -1,5 +1,5 @@
 use crate::{
-    client::WhisperClient,
+    client::{resolve_ephemeral_plaintext, WhisperClient},
     config::{WhisperConfig, DEFAULT_URL},
     error::CliError,
     ui,
@@ -10,13 +10,13 @@ use tracing::debug;
 use url::Url;
 
 pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
-    let (base_url, id) = match target.clone() {
-        ShareTarget::FullUrl { base_url, id } => (base_url, id),
+    let (base_url, id, key) = match target.clone() {
+        ShareTarget::FullUrl { base_url, id, key } => (base_url, id, key),
         ShareTarget::RawId(id) => {
             let url = WhisperConfig::load()
                 .map(|c| c.url)
                 .unwrap_or_else(|_| Url::parse(DEFAULT_URL).expect("DEFAULT_URL is valid"));
-            (url, id)
+            (url, id, None)
         }
     };
     debug!("Resolved base_url={}, id={}", base_url, id);
@@ -32,14 +32,25 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
 
     match result {
         Some(secret) => {
-            if secret.self_destruct {
+            // Warn BEFORE attempting decryption: a self-destructing secret is
+            // already gone server-side, and the user must know that even if
+            // resolving the plaintext fails below.
+            let self_destruct = secret.self_destruct;
+            if self_destruct {
                 eprintln!(
                     "{} This secret has been deleted after retrieval.",
                     style("warn:").yellow().bold()
                 );
                 eprintln!();
             }
-            println!("{}", secret.secret);
+            let plaintext = resolve_ephemeral_plaintext(secret, key.as_deref()).map_err(|e| {
+                if self_destruct {
+                    CliError::SelfDestructedSecretUnreadable { cause: Box::new(e) }
+                } else {
+                    e
+                }
+            })?;
+            println!("{}", plaintext);
         }
         None => {
             return Err(CliError::SecretExpiredOrNotFound);
@@ -51,7 +62,12 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
 
 #[derive(Clone, Debug)]
 pub enum ShareTarget {
-    FullUrl { base_url: Url, id: String },
+    FullUrl {
+        base_url: Url,
+        id: String,
+        /// Decryption key from the `#k=...` fragment of a zero-knowledge link.
+        key: Option<String>,
+    },
     RawId(String),
 }
 
@@ -75,11 +91,17 @@ impl FromStr for ShareTarget {
                 return Err(CliError::InvalidShareTarget("empty id in URL".to_string()));
             }
 
+            let key = url
+                .fragment()
+                .and_then(|f| f.strip_prefix("k="))
+                .map(|s| s.to_string());
+
             let mut base_url = url.clone();
             base_url.set_path("");
             base_url.set_query(None);
+            base_url.set_fragment(None);
 
-            Ok(ShareTarget::FullUrl { base_url, id })
+            Ok(ShareTarget::FullUrl { base_url, id, key })
         } else {
             // Validate as UUID
             uuid::Uuid::parse_str(input).map_err(|_| {
@@ -104,7 +126,7 @@ mod tests {
         )
         .unwrap();
         match target {
-            ShareTarget::FullUrl { base_url, id } => {
+            ShareTarget::FullUrl { base_url, id, .. } => {
                 assert_eq!(base_url.as_str(), "https://whisper.example.com/");
                 assert_eq!(id, "550e8400-e29b-41d4-a716-446655440000");
             }
@@ -119,10 +141,34 @@ mod tests {
         )
         .unwrap();
         match target {
-            ShareTarget::FullUrl { base_url, id } => {
+            ShareTarget::FullUrl { base_url, id, .. } => {
                 assert_eq!(base_url.as_str(), "https://my-server.io/");
                 assert_eq!(id, "550e8400-e29b-41d4-a716-446655440000");
             }
+            _ => panic!("Expected FullUrl"),
+        }
+    }
+
+    #[test]
+    fn test_parse_url_with_fragment_key() {
+        let target = ShareTarget::from_str(
+            "https://whisper.example.com/get_secret?shared_secret_id=550e8400-e29b-41d4-a716-446655440000#k=AbC-_123",
+        )
+        .unwrap();
+        match target {
+            ShareTarget::FullUrl { key, .. } => assert_eq!(key.as_deref(), Some("AbC-_123")),
+            _ => panic!("Expected FullUrl"),
+        }
+    }
+
+    #[test]
+    fn test_parse_url_without_fragment_has_no_key() {
+        let target = ShareTarget::from_str(
+            "https://whisper.example.com/get_secret?shared_secret_id=550e8400-e29b-41d4-a716-446655440000",
+        )
+        .unwrap();
+        match target {
+            ShareTarget::FullUrl { key, .. } => assert!(key.is_none()),
             _ => panic!("Expected FullUrl"),
         }
     }

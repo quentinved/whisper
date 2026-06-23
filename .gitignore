@@ -1,6 +1,10 @@
 /target
 .DS_Store
 .whisperrc
+
+# server AES key — NEVER commit key material
+aes_key.bin
+*.key
 .env
 .env.local
 .env.*.local

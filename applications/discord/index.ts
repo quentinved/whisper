@@ -60,39 +60,59 @@ function formatDuration(seconds: number): string {
   return `${seconds / 60} minute(s)`;
 }
 
+function b64urlEncode(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("base64url");
+}
+
+async function encryptSecret(
+  plaintext: string,
+): Promise<{ keyB64: string; payloadB64: string }> {
+  const key = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt"],
+  );
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: nonce },
+      key,
+      new TextEncoder().encode(plaintext),
+    ),
+  );
+  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+  const payload = new Uint8Array(12 + ciphertext.length);
+  payload.set(nonce);
+  payload.set(ciphertext, 12);
+  return { keyB64: b64urlEncode(rawKey), payloadB64: b64urlEncode(payload) };
+}
+
+// Encrypts locally (the key never reaches the server) and stores only ciphertext.
 async function createSecret(
   secret: string,
   expirationTimestamp: number,
   selfDestruct: boolean,
-): Promise<string> {
-  const formData = new URLSearchParams();
-  formData.set("secret", secret);
-  formData.set("expiration", expirationTimestamp.toString());
-  if (selfDestruct) {
-    formData.set("self_destruct", "true");
-  }
+): Promise<{ id: string; keyB64: string }> {
+  const { keyB64, payloadB64 } = await encryptSecret(secret);
 
-  const response = await fetch(`${whisperUrl}/secret?source=discord`, {
+  const response = await fetch(`${whisperUrl}/v1/ephemeral?source=discord`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: formData.toString(),
-    redirect: "manual",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      payload: payloadB64,
+      expiration: expirationTimestamp,
+      self_destruct: selfDestruct,
+    }),
   });
 
-  const location = response.headers.get("location");
-  if (!location) {
+  if (response.status !== 201) {
     throw new Error(
       `Unexpected response from Whisper server: ${response.status}`,
     );
   }
 
-  const url = new URL(location, whisperUrl);
-  const secretId = url.searchParams.get("shared_secret_id");
-  if (!secretId) {
-    throw new Error(`Could not extract secret ID from redirect: ${location}`);
-  }
-
-  return secretId;
+  const body = (await response.json()) as { id: string };
+  return { id: body.id, keyB64 };
 }
 
 async function handleWhisper(interaction: ChatInputCommandInteraction) {
@@ -118,13 +138,13 @@ async function handleWhisper(interaction: ChatInputCommandInteraction) {
 
   try {
     const expirationTimestamp = Math.floor(Date.now() / 1000) + durationSeconds;
-    const secretId = await createSecret(
+    const { id, keyB64 } = await createSecret(
       secret,
       expirationTimestamp,
       selfDestruct,
     );
 
-    const shareUrl = `${whisperUrl}/get_secret?shared_secret_id=${secretId}`;
+    const shareUrl = `${whisperUrl}/get_secret?shared_secret_id=${id}#k=${keyB64}`;
     const durationDisplay = formatDuration(durationSeconds);
     const destructNote = selfDestruct
       ? "Self-destructs after first view."

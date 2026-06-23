@@ -16,6 +16,7 @@ pub struct PostgreSQLSharedSecret {
     pub nonce: [u8; 12],
     pub expiration: DateTime<Utc>,
     pub self_destruct: bool,
+    pub client_encrypted: bool,
 }
 
 impl From<SharedSecret> for PostgreSQLSharedSecret {
@@ -23,6 +24,7 @@ impl From<SharedSecret> for PostgreSQLSharedSecret {
         let id = secret.id().to_string();
         let expiration = secret.expiration().value();
         let self_destruct = secret.self_destruct();
+        let client_encrypted = secret.client_encrypted();
         let (nonce, cypher) = secret.encrypted_secret().into_parts();
         Self {
             id,
@@ -30,6 +32,7 @@ impl From<SharedSecret> for PostgreSQLSharedSecret {
             nonce,
             expiration,
             self_destruct,
+            client_encrypted,
         }
     }
 }
@@ -40,11 +43,11 @@ impl TryFrom<PostgreSQLSharedSecret> for SharedSecret {
     fn try_from(pg: PostgreSQLSharedSecret) -> Result<Self, Self::Error> {
         let id = SecretId::try_from(pg.id.as_str())?;
         let encrypted_secret = SecretEncrypted::new(pg.nonce, pg.cypher);
-        Ok(SharedSecret::new(
-            id,
-            encrypted_secret,
-            SecretExpiration::from_datetime(pg.expiration),
-            pg.self_destruct,
-        ))
+        let expiration = SecretExpiration::from_datetime(pg.expiration);
+        Ok(if pg.client_encrypted {
+            SharedSecret::new_client_encrypted(id, encrypted_secret, expiration, pg.self_destruct)
+        } else {
+            SharedSecret::new(id, encrypted_secret, expiration, pg.self_destruct)
+        })
     }
 }

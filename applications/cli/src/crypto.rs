@@ -75,6 +75,25 @@ impl CryptoContext {
     }
 }
 
+/// Encrypts a one-time secret with a fresh random 256-bit key (zero-knowledge
+/// ephemeral sharing). Returns `(key_b64url, payload_b64url)` — same payload
+/// format as the web UI and Slack/Discord integrations, so links interoperate.
+pub fn encrypt_ephemeral(plaintext: &str) -> Result<(String, String), CliError> {
+    let (key_b64, payload) =
+        aes_gcm_crypto::encrypt_ephemeral(plaintext).map_err(|e| CliError::EncryptionFailed {
+            reason: e.to_string(),
+        })?;
+    Ok((key_b64, base64_url::encode(&payload)))
+}
+
+/// Decrypts an ephemeral payload using the key carried in a link's `#k=` fragment.
+pub fn decrypt_ephemeral(key_b64url: &str, payload_b64url: &str) -> Result<String, CliError> {
+    let payload =
+        base64_url::decode(payload_b64url).map_err(|e| CliError::Base64(e.to_string()))?;
+    aes_gcm_crypto::decrypt_ephemeral(key_b64url, &payload)
+        .map_err(|e| CliError::DecryptionError(e.to_string()))
+}
+
 fn derive_key_for_version(version: u8, passphrase: &str, salt: &str) -> Result<[u8; 32], CliError> {
     match version {
         KDF_V1_PBKDF2_SHA256_600K => Ok(derive_key(passphrase, salt)),
@@ -125,6 +144,20 @@ mod tests {
         payload[0] = 0xFF;
         let result = ctx.decrypt(&payload);
         assert!(matches!(result, Err(CliError::UnsupportedKdfVersion(0xFF))));
+    }
+
+    #[test]
+    fn ephemeral_roundtrip() {
+        let (key, payload) = encrypt_ephemeral("one-time secret 🤫").unwrap();
+        let decrypted = decrypt_ephemeral(&key, &payload).unwrap();
+        assert_eq!(decrypted, "one-time secret 🤫");
+    }
+
+    #[test]
+    fn ephemeral_wrong_key_fails() {
+        let (_key1, payload) = encrypt_ephemeral("secret").unwrap();
+        let (key2, _payload2) = encrypt_ephemeral("other").unwrap();
+        assert!(decrypt_ephemeral(&key2, &payload).is_err());
     }
 
     #[test]

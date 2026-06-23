@@ -22,10 +22,12 @@ pub struct WhisperWorld {
     pub secret_self_destruct: Option<bool>,
     pub created_secret_id: Option<SecretId>,
     pub retrieved_secret: Option<String>,
+    pub client_payload: Option<Vec<u8>>,
     pub self_destruct_flag: Option<bool>,
     pub deleted_count: Option<u64>,
 
-    // ManagedSecret state
+    // ManagedSecret state (retrieved_payload is also reused by the
+    // client-encrypted SharedSecret retrieval steps)
     pub managed_secret_id: Option<SecretId>,
     pub managed_payload: Option<Vec<u8>>,
     pub retrieved_payload: Option<Vec<u8>>,
@@ -47,6 +49,7 @@ impl WhisperWorld {
             secret_self_destruct: None,
             created_secret_id: None,
             retrieved_secret: None,
+            client_payload: None,
             self_destruct_flag: None,
             deleted_count: None,
 

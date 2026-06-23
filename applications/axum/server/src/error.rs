@@ -6,6 +6,7 @@ use whisper_core::{
     commands::managed_secret::get_managed_secret::GetManagedSecretError,
     commands::managed_secret::upsert_managed_secret::UpsertManagedSecretError,
     commands::shared_secret::{
+        create_client_encrypted_secret::CreateClientEncryptedSecretError,
         create_secret::CreateSecretError, get_secret_by_id::GetSecretByIdError,
     },
     contracts::repositories::managed_secret_repository::ManagedSecretRepositoryError,
@@ -86,6 +87,30 @@ impl From<CreateSecretError> for CustomError {
             }
             CreateSecretError::InternalError { reason } => {
                 error!("Internal error: {:?}", reason);
+                Self::InternalError {
+                    reason: "Internal error".to_string(),
+                }
+            }
+        }
+    }
+}
+
+impl From<CreateClientEncryptedSecretError> for CustomError {
+    fn from(err: CreateClientEncryptedSecretError) -> Self {
+        match err {
+            CreateClientEncryptedSecretError::PayloadTooLarge { size, max } => {
+                error!("Payload too large: {} bytes (max {})", size, max);
+                Self::ValidationError {
+                    field_name: "payload".to_string(),
+                    reason: format!("Payload too large: maximum size is {} KB", max / 1024),
+                }
+            }
+            CreateClientEncryptedSecretError::PayloadTooShort => Self::ValidationError {
+                field_name: "payload".to_string(),
+                reason: "Payload too short: expected nonce + ciphertext".to_string(),
+            },
+            CreateClientEncryptedSecretError::InternalError { reason } => {
+                error!("Create client-encrypted secret error: {:?}", reason);
                 Self::InternalError {
                     reason: "Internal error".to_string(),
                 }

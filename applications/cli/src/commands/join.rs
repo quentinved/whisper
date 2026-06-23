@@ -1,5 +1,5 @@
 use crate::{
-    client::WhisperClient,
+    client::{resolve_ephemeral_plaintext, WhisperClient},
     commands::{get::ShareTarget, init::write_config, pull},
     config::CONFIG_FILE,
     env_whisper::ENV_WHISPER_FILE,
@@ -20,8 +20,8 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
         return Ok(());
     }
 
-    let (base_url, id) = match target.clone() {
-        ShareTarget::FullUrl { base_url, id } => (base_url, id),
+    let (base_url, id, key) = match target.clone() {
+        ShareTarget::FullUrl { base_url, id, key } => (base_url, id, key),
         ShareTarget::RawId(_) => {
             return Err(CliError::InvalidShareTarget(
                 "join requires a full Whisper URL, not a raw UUID".to_string(),
@@ -38,7 +38,7 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
     spinner.finish_and_clear();
 
     let passphrase = match result {
-        Some(secret) => secret.secret,
+        Some(secret) => resolve_ephemeral_plaintext(secret, key.as_deref())?,
         None => return Err(CliError::SecretExpiredOrNotFound),
     };
 
