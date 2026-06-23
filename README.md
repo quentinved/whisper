@@ -15,6 +15,8 @@ Whisper is a zero-knowledge secret manager for developers and teams. Encrypt you
 
 Send a password, API key, or any secret via a URL that auto-expires and optionally self-destructs after first read. Use the hosted [web app](https://whisper.quentinvedrenne.com), the [Slack / Discord integrations](https://whisper.quentinvedrenne.com/integrations), or the CLI:
 
+Secrets created on the web app, CLI, or Raycast are encrypted **on your device** (AES-256-GCM); the decryption key travels only in the link's `#` fragment, which is never sent to the server — the server stores ciphertext it cannot read. Secrets created through Slack or Discord are encrypted by the integration before storage (the platforms themselves still see what you type, by design). Older self-hosted servers without the zero-knowledge endpoint fall back to encryption at rest server-side.
+
 ```bash
 whisper-secrets share              # 1h expiration, self-destructs on read
 whisper-secrets share -e 24h       # custom expiration (up to 7d)
@@ -126,7 +128,7 @@ docker-compose up -d
 openssl rand -out aes_key.bin 32
 
 # Run the server
-cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@localhost/whisper"
+cargo run --bin whisper-server -- --url-postgresql "postgres://postgres:toto@localhost/whisper"
 ```
 
 > Database migrations are applied automatically on startup.
@@ -137,7 +139,7 @@ cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@loc
 |----------|----------|---------|-------------|
 | `PORT` | `--port` | `1212` | TCP port |
 | `LISTEN_ADDR` | `--listen-addr` | `127.0.0.1` | Bind address |
-| `DATABASE_URL` | `--url-posgtresql` | required | PostgreSQL connection URL |
+| `DATABASE_URL` | `--url-postgresql` | required | PostgreSQL connection URL |
 | `AES_KEY_PATH` | `--aes-key-path` | `aes_key.bin` | Path to 32-byte AES key file |
 | `BASE_URL` | `--base-url` | — | Public URL for share links |
 | `SLACK_SIGNING_SECRET` | `--slack-signing-secret` | — | Enables Slack integration |

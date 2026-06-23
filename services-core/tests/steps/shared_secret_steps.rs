@@ -1,9 +1,10 @@
 use crate::steps::WhisperWorld;
 use chrono::{Duration, Utc};
 use cucumber::{given, then, when};
+use whisper_core::commands::shared_secret::create_client_encrypted_secret::CreateClientEncryptedSecret;
 use whisper_core::commands::shared_secret::create_secret::CreateSecret;
 use whisper_core::commands::shared_secret::delete_expired_secrets::DeleteExpiredSecrets;
-use whisper_core::commands::shared_secret::get_secret_by_id::GetSecretById;
+use whisper_core::commands::shared_secret::get_secret_by_id::{GetSecretById, RetrievedSecret};
 use whisper_core::contracts::repositories::shared_secret_repository::SharedSecretRepository;
 use whisper_core::entities::shared_secret::SharedSecret;
 use whisper_core::services::secret_encryption::SecretEncryption;
@@ -52,6 +53,40 @@ async fn given_stored_secret_with_self_destruct(world: &mut WhisperWorld, secret
     let expiration = SecretExpiration::try_from(future_time).unwrap();
     let encrypted = world.encryption.encrypt_secret(&secret).unwrap();
     let shared_secret = SharedSecret::new(id, encrypted, expiration, true);
+    world.shared_secret_repo.insert(shared_secret);
+    world.created_secret_id = Some(id);
+}
+
+/// Shared ZK fixture: nonce[12] ‖ ciphertext — opaque bytes from the core's
+/// point of view. The given and then steps must agree on these exact bytes.
+fn zk_fixture_payload() -> Vec<u8> {
+    let mut payload = vec![3u8; 12];
+    payload.extend_from_slice(b"opaque-client-ciphertext");
+    payload
+}
+
+#[given(
+    expr = "a client-encrypted payload with expiration in {int} hours and self-destruct enabled"
+)]
+async fn given_client_encrypted_payload(world: &mut WhisperWorld, hours: i64) {
+    world.client_payload = Some(zk_fixture_payload());
+    world.secret_expiration_hours = Some(hours);
+    world.secret_self_destruct = Some(true);
+}
+
+#[given("a stored client-encrypted secret")]
+async fn given_stored_client_encrypted_secret(world: &mut WhisperWorld) {
+    let id = SecretId::generate();
+    let future_time = (Utc::now() + Duration::hours(1)).timestamp();
+    let expiration = SecretExpiration::try_from(future_time).unwrap();
+    let payload = zk_fixture_payload();
+    let nonce: [u8; 12] = payload[..12].try_into().expect("12-byte nonce");
+    let shared_secret = SharedSecret::new_client_encrypted(
+        id,
+        SecretEncrypted::new(nonce, payload[12..].to_vec()),
+        expiration,
+        false,
+    );
     world.shared_secret_repo.insert(shared_secret);
     world.created_secret_id = Some(id);
 }
@@ -145,13 +180,38 @@ async fn when_get_secret_by_id(world: &mut WhisperWorld) {
         .await;
 
     match result {
-        Ok(Some((secret, self_destruct))) => {
+        Ok(Some(RetrievedSecret::Plain {
+            secret,
+            self_destruct,
+        })) => {
             world.retrieved_secret = Some(secret);
+            world.self_destruct_flag = Some(self_destruct);
+        }
+        Ok(Some(RetrievedSecret::ClientEncrypted {
+            payload,
+            self_destruct,
+        })) => {
+            world.retrieved_payload = Some(payload);
             world.self_destruct_flag = Some(self_destruct);
         }
         Ok(None) => {
             world.retrieved_secret = None;
         }
+        Err(e) => world.last_error = Some(format!("{e}")),
+    }
+}
+
+#[when("I create the client-encrypted secret")]
+async fn when_create_client_encrypted_secret(world: &mut WhisperWorld) {
+    let payload = world.client_payload.take().unwrap();
+    let hours = world.secret_expiration_hours.take().unwrap();
+    let self_destruct = world.secret_self_destruct.take().unwrap();
+    let future_time = (Utc::now() + Duration::hours(hours)).timestamp();
+    let expiration = SecretExpiration::try_from(future_time).unwrap();
+
+    let command = CreateClientEncryptedSecret::new(payload, expiration, self_destruct).unwrap();
+    match command.handle(&world.shared_secret_repo).await {
+        Ok(id) => world.created_secret_id = Some(id),
         Err(e) => world.last_error = Some(format!("{e}")),
     }
 }
@@ -216,6 +276,24 @@ async fn then_secret_not_found(world: &mut WhisperWorld) {
         world.retrieved_secret.is_none(),
         "expected secret to not be found"
     );
+}
+
+#[then("the stored secret should be marked client-encrypted")]
+async fn then_marked_client_encrypted(world: &mut WhisperWorld) {
+    let id = world.created_secret_id.unwrap();
+    let saved = world
+        .shared_secret_repo
+        .get_by_id(&id)
+        .await
+        .unwrap()
+        .expect("secret must exist");
+    assert!(saved.client_encrypted());
+}
+
+#[then("I should receive the stored payload undecrypted")]
+async fn then_payload_undecrypted(world: &mut WhisperWorld) {
+    let expected = zk_fixture_payload();
+    assert_eq!(world.retrieved_payload.as_ref(), Some(&expected));
 }
 
 #[then(expr = "{int} expired secret(s) should be deleted")]

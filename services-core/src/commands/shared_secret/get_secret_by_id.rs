@@ -14,6 +14,22 @@ pub enum GetSecretByIdError {
     InternalError { reason: String },
 }
 
+/// A retrieved one-time secret.
+/// `Plain`: server-encrypted at rest, decrypted here, ready to display.
+/// `ClientEncrypted`: zero-knowledge payload (`nonce ‖ ciphertext`); only the
+/// link holder's `#k=` fragment can decrypt it — the server has no key.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetrievedSecret {
+    Plain {
+        secret: String,
+        self_destruct: bool,
+    },
+    ClientEncrypted {
+        payload: Vec<u8>,
+        self_destruct: bool,
+    },
+}
+
 pub struct GetSecretById {
     secret_id: SecretId,
 }
@@ -27,7 +43,7 @@ impl GetSecretById {
         &self,
         secret_encryption: &impl SecretEncryption,
         shared_secret_repository: &impl SharedSecretRepository,
-    ) -> Result<Option<(String, bool)>, GetSecretByIdError> {
+    ) -> Result<Option<RetrievedSecret>, GetSecretByIdError> {
         let Some(shared_secret) = shared_secret_repository
             .get_by_id(&self.secret_id)
             .await
@@ -39,13 +55,28 @@ impl GetSecretById {
         };
 
         let self_destruct = shared_secret.self_destruct();
+
+        if shared_secret.client_encrypted() {
+            let (nonce, cypher) = shared_secret.encrypted_secret().into_parts();
+            let mut payload = Vec::with_capacity(nonce.len() + cypher.len());
+            payload.extend_from_slice(&nonce);
+            payload.extend(cypher);
+            return Ok(Some(RetrievedSecret::ClientEncrypted {
+                payload,
+                self_destruct,
+            }));
+        }
+
         let decrypted_secret = secret_encryption
             .decrypt_secret(shared_secret.encrypted_secret())
             .map_err(|err| GetSecretByIdError::DecryptionFailed {
                 reason: err.to_string(),
             })?;
 
-        Ok(Some((decrypted_secret, self_destruct)))
+        Ok(Some(RetrievedSecret::Plain {
+            secret: decrypted_secret,
+            self_destruct,
+        }))
     }
 }
 
@@ -75,10 +106,13 @@ mod tests {
         let command = GetSecretById::new(secret_id);
         let result = command.handle(&encryption, &repository).await.unwrap();
 
-        assert!(result.is_some());
-        let (decrypted, self_destruct) = result.unwrap();
-        assert_eq!(decrypted, "test_secret");
-        assert!(!self_destruct);
+        assert_eq!(
+            result,
+            Some(RetrievedSecret::Plain {
+                secret: "test_secret".to_string(),
+                self_destruct: false
+            })
+        );
     }
 
     #[tokio::test]
@@ -108,12 +142,50 @@ mod tests {
         let command = GetSecretById::new(secret_id);
         let result = command.handle(&encryption, &repository).await.unwrap();
 
-        assert!(result.is_some());
-        let (decrypted, self_destruct) = result.unwrap();
-        assert_eq!(decrypted, "secret");
-        assert!(self_destruct);
+        assert_eq!(
+            result,
+            Some(RetrievedSecret::Plain {
+                secret: "secret".to_string(),
+                self_destruct: true
+            })
+        );
 
         // Note: Self-destruct deletion happens in the repository layer,
         // not in this command, so we can't test it here
+    }
+
+    #[tokio::test]
+    async fn client_encrypted_secret_is_returned_undecrypted() {
+        let encryption = MockEncryption;
+        let repository = MockSharedSecretRepository::new();
+        let secret_id = SecretId::generate();
+        let future_time = (Utc::now() + Duration::hours(1)).timestamp();
+        let expiration = SecretExpiration::try_from(future_time).unwrap();
+
+        let nonce = [9u8; 12];
+        let cypher = b"opaque-ciphertext".to_vec();
+        let secret = SharedSecret::new_client_encrypted(
+            secret_id,
+            crate::values_object::shared_secret::secret_encrypted::SecretEncrypted::new(
+                nonce,
+                cypher.clone(),
+            ),
+            expiration,
+            false,
+        );
+        repository.insert(secret);
+
+        let command = GetSecretById::new(secret_id);
+        let result = command.handle(&encryption, &repository).await.unwrap();
+
+        let mut expected_payload = nonce.to_vec();
+        expected_payload.extend(cypher);
+        assert_eq!(
+            result,
+            Some(RetrievedSecret::ClientEncrypted {
+                payload: expected_payload,
+                self_destruct: false
+            })
+        );
     }
 }

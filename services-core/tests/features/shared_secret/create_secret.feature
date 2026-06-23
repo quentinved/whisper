@@ -15,3 +15,9 @@ Feature: Create a shared secret
     Given a secret larger than 64 KB with expiration in 1 hours
     When I try to create the secret
     Then I should get a "Secret too large" error
+
+  Scenario: Successfully create a client-encrypted secret
+    Given a client-encrypted payload with expiration in 1 hours and self-destruct enabled
+    When I create the client-encrypted secret
+    Then the secret should be stored successfully
+    And the stored secret should be marked client-encrypted

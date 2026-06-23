@@ -4,7 +4,7 @@ use serde_json;
 use std::sync::Arc;
 use tracing::{error, info};
 use whisper_core::{
-    commands::shared_secret::create_secret::CreateSecret,
+    commands::shared_secret::create_client_encrypted_secret::CreateClientEncryptedSecret,
     values_object::shared_secret::secret_expiration::SecretExpiration,
 };
 
@@ -60,7 +60,20 @@ pub async fn handle_whisper(
         }
     };
 
-    let command = match CreateSecret::new(secret_text.to_string(), expiration, self_destruct) {
+    let (key_b64, payload) = match aes_gcm_crypto::encrypt_ephemeral(secret_text) {
+        Ok(pair) => pair,
+        Err(err) => {
+            error!("Failed to encrypt Slack secret: {:?}", err);
+            return (
+                StatusCode::OK,
+                Json(SlackResponse::ephemeral(
+                    "Error: Failed to create secret. Please try again.",
+                )),
+            );
+        }
+    };
+
+    let command = match CreateClientEncryptedSecret::new(payload, expiration, self_destruct) {
         Ok(cmd) => cmd,
         Err(err) => {
             return (
@@ -69,10 +82,7 @@ pub async fn handle_whisper(
             );
         }
     };
-    match command
-        .handle(&app_state.aes_gcm(), &app_state.shared_secret_repository())
-        .await
-    {
+    match command.handle(&app_state.shared_secret_repository()).await {
         Ok(secret_id) => {
             app_state.analytics().track(
                 "secret_created",
@@ -80,13 +90,15 @@ pub async fn handle_whisper(
                 serde_json::json!({
                     "self_destruct": self_destruct,
                     "expiration": duration_seconds,
+                    "client_encrypted": true,
                 }),
             );
 
             let share_url = format!(
-                "{}/get_secret?shared_secret_id={}",
+                "{}/get_secret?shared_secret_id={}#k={}",
                 app_state.url(),
-                secret_id.value()
+                secret_id.value(),
+                key_b64
             );
             let duration_display = format_duration(duration_seconds);
             let destruct_note = if self_destruct {

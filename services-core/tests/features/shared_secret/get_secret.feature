@@ -15,3 +15,8 @@ Feature: Retrieve a shared secret
     When I retrieve the secret by its ID
     Then I should see the decrypted value "one-time-password"
     And self-destruct should be enabled
+
+  Scenario: Retrieve a client-encrypted secret without decrypting it
+    Given a stored client-encrypted secret
+    When I retrieve the secret by its ID
+    Then I should receive the stored payload undecrypted

@@ -8,9 +8,11 @@ pub struct SharedSecret {
     encrypted_secret: SecretEncrypted,
     expiration: SecretExpiration,
     self_destruct: bool,
+    client_encrypted: bool,
 }
 
 impl SharedSecret {
+    /// Server-encrypted secret: encrypted at rest with the server-held key.
     pub fn new(
         id: SecretId,
         encrypted_secret: SecretEncrypted,
@@ -22,6 +24,24 @@ impl SharedSecret {
             encrypted_secret,
             expiration,
             self_destruct,
+            client_encrypted: false,
+        }
+    }
+
+    /// Client-encrypted (zero-knowledge) secret: nonce/cypher were produced by the
+    /// sender's device; the server holds no key for them.
+    pub fn new_client_encrypted(
+        id: SecretId,
+        encrypted_secret: SecretEncrypted,
+        expiration: SecretExpiration,
+        self_destruct: bool,
+    ) -> Self {
+        Self {
+            id,
+            encrypted_secret,
+            expiration,
+            self_destruct,
+            client_encrypted: true,
         }
     }
 
@@ -39,5 +59,9 @@ impl SharedSecret {
 
     pub fn self_destruct(&self) -> bool {
         self.self_destruct
+    }
+
+    pub fn client_encrypted(&self) -> bool {
+        self.client_encrypted
     }
 }

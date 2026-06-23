@@ -31,11 +31,13 @@ pub async fn run(expiration: &str, no_self_destruct: bool) -> Result<(), CliErro
 
     let spinner = ui::spinner("Creating secret...");
 
-    debug!("Creating ephemeral secret on {}", base_url);
+    debug!("Encrypting locally (zero-knowledge) for {}", base_url);
+    let (key, payload) = crate::crypto::encrypt_ephemeral(&secret)?;
     let client = WhisperClient::new(&base_url);
-    let share_url = client
-        .create_ephemeral_secret(&secret, expiration_ts, !no_self_destruct)
+    let id = client
+        .create_ephemeral_secret_v1(&payload, expiration_ts, !no_self_destruct)
         .await?;
+    let share_url = client.ephemeral_share_url(&id, &key);
     debug!("Secret created");
 
     spinner.finish_and_clear();

@@ -102,6 +102,15 @@ pub enum CliError {
 
     #[error("Cannot prompt for value: not running interactively. Run this command in a terminal, or use `whisper-secrets import` for bulk uploads.")]
     NotATerminal,
+
+    #[error("This is a zero-knowledge link — it needs the decryption key after '#'. Paste the complete link, including the #k=... part.")]
+    MissingFragmentKey,
+
+    #[error("This server doesn't support zero-knowledge sharing (no /v1/ephemeral endpoint). Update your Whisper server, or use an older CLI version against it.")]
+    ServerMissingZkEndpoint,
+
+    #[error("{cause}\nThis was a one-time secret — it has now been consumed, so the sender must share a new link.")]
+    SelfDestructedSecretUnreadable { cause: Box<CliError> },
 }
 
 #[cfg(test)]

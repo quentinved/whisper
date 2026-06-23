@@ -82,11 +82,13 @@ pub async fn share_passphrase(url: &Url, passphrase: &str) -> Result<Url, CliErr
         .as_secs() as i64;
     let expiration = now + TWENTY_FOUR_HOURS;
 
-    debug!("Creating ephemeral secret on {}", url);
+    debug!("Encrypting passphrase locally (zero-knowledge) for {}", url);
+    let (key, payload) = crate::crypto::encrypt_ephemeral(passphrase)?;
     let client = WhisperClient::new(url);
-    let share_url = client
-        .create_ephemeral_secret(passphrase, expiration, false)
+    let id = client
+        .create_ephemeral_secret_v1(&payload, expiration, false)
         .await?;
+    let share_url = client.ephemeral_share_url(&id, &key);
     debug!("Ephemeral secret created");
 
     spinner.finish_and_clear();

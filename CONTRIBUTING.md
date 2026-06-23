@@ -24,7 +24,7 @@ docker-compose up -d
 openssl rand -out aes_key.bin 32
 
 # Run the server
-cargo run --bin whisper-server -- --url-posgtresql "postgres://postgres:toto@localhost/whisper"
+cargo run --bin whisper-server -- --url-postgresql "postgres://postgres:toto@localhost/whisper"
 
 # In another terminal: run the CLI against your local server
 cargo run --bin whisper-secrets -- init --url http://localhost:1212
