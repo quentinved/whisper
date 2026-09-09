@@ -38,7 +38,26 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
     spinner.finish_and_clear();
 
     let passphrase = match result {
-        Some(secret) => resolve_ephemeral_plaintext(secret, key.as_deref())?,
+        Some(secret) => {
+            // Warn BEFORE attempting decryption: a self-destructing secret is
+            // already gone server-side, and the user must know that even if
+            // resolving the plaintext fails below.
+            let self_destruct = secret.self_destruct;
+            if self_destruct {
+                eprintln!(
+                    "{} This secret has been deleted after retrieval.",
+                    style("warn:").yellow().bold()
+                );
+                eprintln!();
+            }
+            resolve_ephemeral_plaintext(secret, key.as_deref()).map_err(|e| {
+                if self_destruct {
+                    CliError::SelfDestructedSecretUnreadable { cause: Box::new(e) }
+                } else {
+                    e
+                }
+            })?
+        }
         None => return Err(CliError::SecretExpiredOrNotFound),
     };
 

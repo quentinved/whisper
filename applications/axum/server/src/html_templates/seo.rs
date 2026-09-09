@@ -26,6 +26,9 @@ pub struct SeoMeta {
     pub json_ld_website: String,
     /// Pre-serialized SoftwareApplication JSON-LD (valid JSON, safe to emit with `|safe`).
     pub json_ld_software: String,
+    /// Server version, appended as `?v=` to static asset URLs so a new release
+    /// busts any CDN/browser cache of CSS/JS (avoids stale-asset deploys).
+    pub asset_version: &'static str,
 }
 
 impl SeoMeta {
@@ -67,6 +70,7 @@ impl SeoMeta {
             robots,
             json_ld_website,
             json_ld_software,
+            asset_version: env!("CARGO_PKG_VERSION"),
         }
     }
 

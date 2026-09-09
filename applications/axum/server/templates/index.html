@@ -117,7 +117,7 @@
 <div class="alert alert-error">
   <strong>Error:</strong> {{ error_shared_secret.as_ref().unwrap() }}
 </div>
-<a href="/" class="btn btn-primary w-full mt-1">Try Again</a>
+<a href="/" class="btn btn-primary w-full mt-2">Try Again</a>
 {% endif %}
 
 {% if shared_secret_id.is_some() %}
@@ -154,5 +154,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/assets/create_secret.js"></script>
+<script src="/assets/create_secret.js?v={{ seo.asset_version }}"></script>
 {% endblock %}

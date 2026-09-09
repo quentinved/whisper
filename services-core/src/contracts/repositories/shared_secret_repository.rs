@@ -16,6 +16,13 @@ pub enum SharedSecretRepositoryError {
 
 pub type Result<T> = std::result::Result<T, SharedSecretRepositoryError>;
 
+/// Public metadata about a stored secret — safe to expose without consuming it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SecretMetadata {
+    pub client_encrypted: bool,
+    pub self_destruct: bool,
+}
+
 pub trait SharedSecretRepository {
     /// Save a secret
     /// # Arguments
@@ -38,6 +45,13 @@ pub trait SharedSecretRepository {
         &self,
         id: &SecretId,
     ) -> impl std::future::Future<Output = Result<Option<SharedSecret>>> + Send;
+
+    /// Non-consuming metadata lookup: never deletes a self-destruct secret and
+    /// never returns ciphertext. Returns None if absent/expired.
+    fn get_metadata_by_id(
+        &self,
+        id: &SecretId,
+    ) -> impl std::future::Future<Output = Result<Option<SecretMetadata>>> + Send;
 
     /// Delete a secret by its id
     /// # Arguments

@@ -1,19 +1,17 @@
 use crate::{
+    commands::shared_secret::create_secret::MAX_SECRET_SIZE,
     contracts::repositories::shared_secret_repository::{
         SharedSecretRepository, SharedSecretRepositoryError,
     },
     entities::shared_secret::SharedSecret,
     values_object::shared_secret::{
-        secret_encrypted::{SecretEncrypted, NONCE_SIZE},
-        secret_expiration::SecretExpiration,
-        secret_id::SecretId,
+        secret_encrypted::SecretEncrypted, secret_expiration::SecretExpiration, secret_id::SecretId,
     },
 };
 use thiserror::Error;
 
-const MAX_PAYLOAD_SIZE: usize = 64 * 1024; // 64 KB, same limit as CreateSecret
-/// nonce (12) + at least 1 byte of ciphertext
-const MIN_PAYLOAD_SIZE: usize = NONCE_SIZE + 1;
+/// Same 64 KB cap as plaintext secrets, single-sourced from `create_secret`.
+const MAX_PAYLOAD_SIZE: usize = MAX_SECRET_SIZE;
 
 #[derive(Debug, Error)]
 pub enum CreateClientEncryptedSecretError {
@@ -38,7 +36,7 @@ impl From<SharedSecretRepositoryError> for CreateClientEncryptedSecretError {
 /// Stores a payload that was encrypted on the sender's device (zero-knowledge).
 /// The payload layout is `nonce[12] ‖ ciphertext`; the server never sees the key.
 pub struct CreateClientEncryptedSecret {
-    payload: Vec<u8>,
+    encrypted: SecretEncrypted,
     expiration: SecretExpiration,
     self_destruct: bool,
 }
@@ -49,17 +47,16 @@ impl CreateClientEncryptedSecret {
         expiration: SecretExpiration,
         self_destruct: bool,
     ) -> Result<Self, CreateClientEncryptedSecretError> {
-        if payload.len() < MIN_PAYLOAD_SIZE {
-            return Err(CreateClientEncryptedSecretError::PayloadTooShort);
-        }
         if payload.len() > MAX_PAYLOAD_SIZE {
             return Err(CreateClientEncryptedSecretError::PayloadTooLarge {
                 size: payload.len(),
                 max: MAX_PAYLOAD_SIZE,
             });
         }
+        let encrypted = SecretEncrypted::try_from_payload(&payload)
+            .ok_or(CreateClientEncryptedSecretError::PayloadTooShort)?;
         Ok(Self {
-            payload,
+            encrypted,
             expiration,
             self_destruct,
         })
@@ -69,17 +66,13 @@ impl CreateClientEncryptedSecret {
         self,
         shared_secret_repository: &impl SharedSecretRepository,
     ) -> Result<SecretId, CreateClientEncryptedSecretError> {
-        let nonce: [u8; NONCE_SIZE] = self.payload[..NONCE_SIZE].try_into().map_err(|_| {
-            CreateClientEncryptedSecretError::InternalError {
-                reason: "nonce length mismatch".to_string(),
-            }
-        })?;
-        let cypher = self.payload[NONCE_SIZE..].to_vec();
-        let encrypted = SecretEncrypted::new(nonce, cypher);
-
         let id = SecretId::generate();
-        let shared_secret =
-            SharedSecret::new_client_encrypted(id, encrypted, self.expiration, self.self_destruct);
+        let shared_secret = SharedSecret::new_client_encrypted(
+            id,
+            self.encrypted,
+            self.expiration,
+            self.self_destruct,
+        );
         Ok(shared_secret_repository.save(shared_secret).await?)
     }
 }
@@ -88,7 +81,11 @@ impl CreateClientEncryptedSecret {
 mod tests {
     use super::*;
     use crate::commands::shared_secret::test_utils::mocks::MockSharedSecretRepository;
+    use crate::values_object::shared_secret::secret_encrypted::NONCE_SIZE;
     use chrono::{Duration, Utc};
+
+    /// nonce (12) + at least 1 byte of ciphertext
+    const MIN_PAYLOAD_SIZE: usize = NONCE_SIZE + 1;
 
     fn future_expiration() -> SecretExpiration {
         let ts = (Utc::now() + Duration::hours(1)).timestamp();

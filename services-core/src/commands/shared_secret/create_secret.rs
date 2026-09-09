@@ -8,7 +8,9 @@ use crate::{
 };
 use thiserror::Error;
 
-const MAX_SECRET_SIZE: usize = 64 * 1024; // 64 KB
+/// Maximum secret/payload size across all create paths (plaintext and
+/// client-encrypted). Single source of truth for the 64 KB cap.
+pub const MAX_SECRET_SIZE: usize = 64 * 1024; // 64 KB
 
 #[derive(Debug, Error)]
 pub enum CreateSecretError {

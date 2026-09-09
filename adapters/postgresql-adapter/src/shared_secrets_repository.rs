@@ -2,7 +2,7 @@ use crate::models::{shared_secret::PostgreSQLSharedSecret, ModelConversionError}
 use sqlx::PgPool;
 use whisper_core::{
     contracts::repositories::shared_secret_repository::{
-        SharedSecretRepository, SharedSecretRepositoryError,
+        SecretMetadata, SharedSecretRepository, SharedSecretRepositoryError,
     },
     entities::shared_secret::SharedSecret,
     values_object::shared_secret::secret_id::SecretId,
@@ -114,6 +114,27 @@ impl SharedSecretRepository for PostgreSQLSharedSecretsRepository {
             }
             None => Ok(None),
         }
+    }
+
+    async fn get_metadata_by_id(
+        &self,
+        id: &SecretId,
+    ) -> Result<Option<SecretMetadata>, SharedSecretRepositoryError> {
+        let row = sqlx::query_as::<_, (bool, bool)>(
+            "SELECT client_encrypted, self_destruct FROM secrets \
+             WHERE id = $1 AND expiration >= NOW()",
+        )
+        .bind(id.value().to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|err| {
+            tracing::error!("Database error during get_metadata_by_id: {:?}", err);
+            SharedSecretRepositoryError::DatabaseError("Failed to retrieve metadata".to_string())
+        })?;
+        Ok(row.map(|(client_encrypted, self_destruct)| SecretMetadata {
+            client_encrypted,
+            self_destruct,
+        }))
     }
 
     async fn delete_by_id(&self, id: &SecretId) -> Result<(), SharedSecretRepositoryError> {

@@ -32,10 +32,12 @@ if (expSelect) {
   var MAX_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   // Set max on custom date picker
-  var maxDate = new Date(Date.now() + MAX_MS);
-  customInput.max = maxDate.toISOString().slice(0, 16);
-  var minDate = new Date();
-  customInput.min = minDate.toISOString().slice(0, 16);
+  function toLocalInputValue(d) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  customInput.max = toLocalInputValue(new Date(Date.now() + MAX_MS));
+  customInput.min = toLocalInputValue(new Date());
 
   function updateExpiration() {
     const val = expSelect.value;
@@ -239,7 +241,7 @@ function collectRowsIn(container) {
     const key = row.querySelector('.kv-builder-key').value.trim();
     const value = row.querySelector('.kv-builder-value').value;
     if (!key || value === '') return;
-    if (key in obj) { duplicate = duplicate || key; return; }
+    if (Object.hasOwn(obj, key)) { duplicate = duplicate || key; return; }
     obj[key] = value;
   });
   return { obj, duplicate };
@@ -278,6 +280,7 @@ function setSubmitting(submitting) {
 }
 
 function showFormError(msg) {
+  if (window.whisperTrack) whisperTrack('secret_creation_failed');
   // multivalue mode shows errors in its banner; freeform reuses it too
   multivalueError.textContent = msg;
   multivalueError.hidden = false;
@@ -302,7 +305,7 @@ if (form && submitBtn) {
         const section = collectRowsIn(block.querySelector('.kv-section-rows'));
         if (Object.keys(section.obj).length === 0 && !name) continue;
         if (!name) return showFormError('Section name is required (or remove the empty section).');
-        if (name in obj || seenSectionNames.has(name)) return showFormError('Duplicate name: "' + name + '". Section names cannot collide with top-level keys or other sections.');
+        if (Object.hasOwn(obj, name) || seenSectionNames.has(name)) return showFormError('Duplicate name: "' + name + '". Section names cannot collide with top-level keys or other sections.');
         if (section.duplicate) return showFormError('Duplicate key in section "' + name + '": "' + section.duplicate + '".');
         if (Object.keys(section.obj).length === 0) continue;
         seenSectionNames.add(name);
@@ -319,6 +322,7 @@ if (form && submitBtn) {
     if (!window.crypto || !window.crypto.subtle) {
       return showFormError('Your browser does not support WebCrypto (required to encrypt locally). Use a modern browser over HTTPS.');
     }
+    updateExpiration(); // recompute so a long-idle tab still yields a fresh future timestamp
     const expiration = parseInt(document.getElementById('expiration').value, 10);
     if (!expiration) return showFormError('Please choose a valid expiration.');
 
