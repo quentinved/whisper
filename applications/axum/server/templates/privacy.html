@@ -1,7 +1,7 @@
 {% extends "layout.html" %} {% block content %}
 <div class="legal-content">
   <h2 style="margin-top: 0">Privacy Policy</h2>
-  <p class="legal-date">Last updated: May 5, 2026</p>
+  <p class="legal-date">Last updated: September 18, 2026</p>
 
   <h2>What Whisper Does</h2>
   <p>
@@ -76,6 +76,9 @@
     </li>
     <li>All connections use HTTPS with HSTS enabled.</li>
     <li>
+      Servers and data are hosted in the European Union (Stockholm, Sweden).
+    </li>
+    <li>
       Slack requests are verified using HMAC-SHA256 signature verification.
     </li>
   </ul>
@@ -95,6 +98,12 @@
     <li>
       <strong>Slack API</strong> &mdash; to process /whisper slash commands
       (integration only)
+    </li>
+    <li>
+      <strong>Oracle Cloud Infrastructure</strong> &mdash; hosting provider. All
+      servers and databases are located in Stockholm, Sweden (European Union).
+      Secret content is encrypted at rest, so the hosting provider cannot read
+      it.
     </li>
   </ul>
   <p>No secret content is ever shared with third parties.</p>
