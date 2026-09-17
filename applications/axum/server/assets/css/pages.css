@@ -232,7 +232,6 @@
 .state-error-text { color: var(--text-muted); font-size: 0.9375rem; margin-bottom: 1.5rem; }
 .mt-025 { margin-top: 0.25rem; }
 .mt-075 { margin-top: 0.75rem; }
-.mt-1 { margin-top: 1rem; }
 .custom-expiration { display: none; margin-top: 0.75rem; }
 .custom-expiration.visible { display: block; }
 .custom-expiration input { width: 100%; }

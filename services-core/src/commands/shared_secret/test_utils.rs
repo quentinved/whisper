@@ -1,7 +1,7 @@
 #[cfg(any(test, feature = "test-utils"))]
 pub mod mocks {
     use crate::contracts::repositories::shared_secret_repository::{
-        SharedSecretRepository, SharedSecretRepositoryError,
+        SecretMetadata, SharedSecretRepository, SharedSecretRepositoryError,
     };
     use crate::entities::shared_secret::SharedSecret;
     use crate::services::secret_encryption::{SecretEncryption, SecretEncryptionError};
@@ -80,6 +80,21 @@ pub mod mocks {
             id: &SecretId,
         ) -> Result<Option<SharedSecret>, SharedSecretRepositoryError> {
             Ok(self.secrets.lock().unwrap().get(id).cloned())
+        }
+
+        async fn get_metadata_by_id(
+            &self,
+            id: &SecretId,
+        ) -> Result<Option<SecretMetadata>, SharedSecretRepositoryError> {
+            Ok(self
+                .secrets
+                .lock()
+                .unwrap()
+                .get(id)
+                .map(|s| SecretMetadata {
+                    client_encrypted: s.client_encrypted(),
+                    self_destruct: s.self_destruct(),
+                }))
         }
 
         async fn delete_by_id(&self, id: &SecretId) -> Result<(), SharedSecretRepositoryError> {

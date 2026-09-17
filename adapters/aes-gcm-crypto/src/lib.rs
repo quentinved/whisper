@@ -81,11 +81,7 @@ pub fn encrypt_ephemeral(plaintext: &str) -> Result<(String, Vec<u8>), SecretEnc
     let key = Aes256Gcm::generate_key(&mut OsRng);
     let aes = AesGcm::new(key);
     let encrypted = aes.encrypt_secret(plaintext)?;
-    let (nonce, cypher) = encrypted.into_parts();
-    let mut payload = Vec::with_capacity(nonce.len() + cypher.len());
-    payload.extend_from_slice(&nonce);
-    payload.extend(cypher);
-    Ok((base64_url::encode(key.as_slice()), payload))
+    Ok((base64_url::encode(key.as_slice()), encrypted.into_payload()))
 }
 
 /// Decrypts an ephemeral payload (`nonce[12] ‖ ciphertext`) using the key
@@ -105,13 +101,10 @@ pub fn decrypt_ephemeral(
             .map_err(|_| SecretEncryptionError::InternalError {
                 reason: "key must be 32 bytes".to_string(),
             })?;
-    if payload.len() < 13 {
-        return Err(SecretEncryptionError::InternalError {
+    let encrypted =
+        SecretEncrypted::try_from_payload(payload).ok_or(SecretEncryptionError::InternalError {
             reason: "payload too short".to_string(),
-        });
-    }
-    let nonce: [u8; 12] = payload[..12].try_into().expect("12-byte slice");
-    let encrypted = SecretEncrypted::new(nonce, payload[12..].to_vec());
+        })?;
     AesGcm::new(key).decrypt_secret(encrypted)
 }
 

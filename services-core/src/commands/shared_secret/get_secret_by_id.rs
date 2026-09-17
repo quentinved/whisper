@@ -57,10 +57,7 @@ impl GetSecretById {
         let self_destruct = shared_secret.self_destruct();
 
         if shared_secret.client_encrypted() {
-            let (nonce, cypher) = shared_secret.encrypted_secret().into_parts();
-            let mut payload = Vec::with_capacity(nonce.len() + cypher.len());
-            payload.extend_from_slice(&nonce);
-            payload.extend(cypher);
+            let payload = shared_secret.encrypted_secret().into_payload();
             return Ok(Some(RetrievedSecret::ClientEncrypted {
                 payload,
                 self_destruct,

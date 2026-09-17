@@ -22,4 +22,21 @@ impl SecretEncrypted {
     pub fn into_parts(self) -> ([u8; NONCE_SIZE], Vec<u8>) {
         (self.nonce, self.cypher)
     }
+
+    /// Wire payload: `nonce ‖ ciphertext`. The cross-surface zero-knowledge format.
+    pub fn into_payload(self) -> Vec<u8> {
+        let mut p = Vec::with_capacity(NONCE_SIZE + self.cypher.len());
+        p.extend_from_slice(&self.nonce);
+        p.extend(self.cypher);
+        p
+    }
+
+    /// Parse `nonce[12] ‖ ciphertext`; needs at least nonce + 1 byte.
+    pub fn try_from_payload(payload: &[u8]) -> Option<Self> {
+        if payload.len() < NONCE_SIZE + 1 {
+            return None;
+        }
+        let nonce: [u8; NONCE_SIZE] = payload[..NONCE_SIZE].try_into().ok()?;
+        Some(Self::new(nonce, payload[NONCE_SIZE..].to_vec()))
+    }
 }

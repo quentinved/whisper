@@ -160,6 +160,21 @@ function showError(message) {
   if (window.whisperTrack) whisperTrack('secret_retrieve_failed');
 }
 
+// Transient failure: re-enable the button and return to the reveal state so the
+// user can retry without a page reload. Shows an inline banner (#reveal-error).
+function resetAndError(message) {
+  loadingState.hidden = true;
+  revealedState.hidden = true;
+  errorState.hidden = true;
+  revealState.hidden = false; // show the Reveal button again
+  if (revealBtn) revealBtn.disabled = false; // re-enable it
+  const banner = document.getElementById('reveal-error');
+  if (banner) {
+    banner.textContent = message;
+    banner.hidden = false;
+  }
+}
+
 function displaySecret(value, selfDestruct) {
   loadingState.hidden = true;
   revealedState.hidden = false;
@@ -235,6 +250,29 @@ async function reveal() {
   const id = new URLSearchParams(location.search).get('shared_secret_id');
   if (!id) return showError('Missing secret ID');
 
+  // Non-consuming pre-check: never burn a self-destruct ZK secret we can't decrypt.
+  let meta;
+  try {
+    const metaResp = await fetch(`/secret/${encodeURIComponent(id)}/meta`);
+    if (metaResp.status === 404) {
+      return showError('Secret not found — it may have expired or already been viewed.');
+    }
+    meta = await metaResp.json();
+  } catch (e) {
+    return resetAndError('Network error — please check your connection and try again.');
+  }
+  const hasKey = /^#k=([A-Za-z0-9_-]+)$/.test(location.hash);
+  if (meta.client_encrypted && !hasKey) {
+    return resetAndError(
+      'This link is missing its decryption key (the part after #). Ask the sender for the complete link. Your secret was NOT consumed — reopen with the full link.'
+    );
+  }
+  if (meta.client_encrypted && (!window.crypto || !window.crypto.subtle)) {
+    return resetAndError(
+      'Your browser cannot decrypt this secret (WebCrypto unavailable). Open the link in a modern browser over HTTPS. Your secret was NOT consumed.'
+    );
+  }
+
   revealState.hidden = true;
   loadingState.hidden = false;
 
@@ -242,7 +280,7 @@ async function reveal() {
   try {
     response = await fetch(`/secret/${encodeURIComponent(id)}?source=web`);
   } catch (e) {
-    return showError('Network error — please check your connection and try again.');
+    return resetAndError('Network error — please check your connection and try again.');
   }
 
   if (response.status === 404) {
