@@ -16,6 +16,10 @@ type HmacSha256 = Hmac<Sha256>;
 
 const MAX_TIMESTAMP_AGE_SECONDS: i64 = 300; // 5 minutes
 
+// axum's `middleware::from_fn_with_state` fixes this signature: both the success
+// and rejection types must be a `Response`, which is larger than clippy's
+// `result_large_err` threshold. The type is imposed by the framework, not a choice.
+#[allow(clippy::result_large_err)]
 pub async fn verify_slack_signature(
     State(app_state): State<Arc<AppState>>,
     request: Request<Body>,
