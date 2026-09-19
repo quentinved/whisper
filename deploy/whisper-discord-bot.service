@@ -4,11 +4,18 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/root
-ExecStart=/root/whisper-discord-bot
-EnvironmentFile=/root/.discord-bot.env
+User=whisper
+Group=whisper
+WorkingDirectory=/opt/whisper
+ExecStart=/opt/whisper/whisper-discord-bot
+EnvironmentFile=/opt/whisper/.discord-bot.env
 Restart=on-failure
 RestartSec=5
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

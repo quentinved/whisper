@@ -105,6 +105,11 @@ async function createSecret(
     }),
   });
 
+  if (response.status === 404 || response.status === 405) {
+    throw new Error(
+      "This Whisper server doesn't support zero-knowledge sharing (no /v1/ephemeral endpoint). The server needs updating.",
+    );
+  }
   if (response.status !== 201) {
     throw new Error(
       `Unexpected response from Whisper server: ${response.status}`,

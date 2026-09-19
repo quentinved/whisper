@@ -9,7 +9,7 @@ use axum::{
 use rust_embed::Embed;
 use secret_api::{
     create_ephemeral::create_ephemeral, create_secret::create_secret,
-    get_secret_by_id::get_secret_by_id,
+    get_secret_by_id::get_secret_by_id, get_secret_metadata::get_secret_metadata,
 };
 use std::sync::Arc;
 use tower_http::set_header::SetResponseHeaderLayer;
@@ -29,7 +29,13 @@ async fn serve_asset(Path(path): Path<String>) -> impl IntoResponse {
             let mime_type = file.metadata.mimetype();
             (
                 StatusCode::OK,
-                [(header::CONTENT_TYPE, mime_type.to_string())],
+                [
+                    (header::CONTENT_TYPE, mime_type.to_string()),
+                    (
+                        header::CACHE_CONTROL,
+                        "public, max-age=31536000, immutable".to_string(),
+                    ),
+                ],
                 file.data.into_owned(),
             )
                 .into_response()
@@ -79,6 +85,7 @@ pub fn app(app_state: Arc<AppState>) -> Router {
         .route("/secret", post(create_secret))
         .route("/v1/ephemeral", post(create_ephemeral))
         .route("/secret/:shared_secret_id", get(get_secret_by_id))
+        .route("/secret/:shared_secret_id/meta", get(get_secret_metadata))
         .route("/", get(views::index::index))
         .route("/get_secret", get(views::get_secret::get_secret))
         .route("/health", get(health))

@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::info;
 use whisper_core::{
-    commands::shared_secret::create_client_encrypted_secret::CreateClientEncryptedSecret,
+    commands::shared_secret::{
+        create_client_encrypted_secret::CreateClientEncryptedSecret, create_secret::MAX_SECRET_SIZE,
+    },
     values_object::shared_secret::secret_expiration::SecretExpiration,
 };
 
@@ -44,7 +46,7 @@ pub async fn create_ephemeral(
     // the exact 64 KB cap on the decoded bytes; this pre-check just avoids the
     // decode allocation for bodies that can't possibly fit (base64 expands by
     // 4/3). Axum's default body limit bounds the request size above that.
-    const MAX_PAYLOAD_B64_LEN: usize = 64 * 1024 * 4 / 3 + 4;
+    const MAX_PAYLOAD_B64_LEN: usize = MAX_SECRET_SIZE * 4 / 3 + 4;
     if body.payload.len() > MAX_PAYLOAD_B64_LEN {
         return Err(CustomError::ValidationError {
             field_name: "payload".to_string(),

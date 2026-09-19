@@ -22,11 +22,27 @@ jobs:
           cargo test --workspace --lib --bins
           cargo test -p whisper-server --test api
 
-      - name: Build release binary
-        run: cargo build --release --bin whisper-server
+      # Oracle Linux 9 ships glibc 2.34; the runner has 2.39. Building on the
+      # runner produces a binary that will not start on the deploy target, so
+      # the release binary is compiled inside an Oracle Linux 9 container.
+      - name: Build release binary (Oracle Linux 9 / glibc 2.34)
+        run: |
+          docker run --rm -v "$PWD":/src -w /src oraclelinux:9 bash -eux -c '
+            dnf -y install gcc gcc-c++ make cmake perl openssl-devel pkgconf-pkg-config
+            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            . "$HOME/.cargo/env"
+            cargo build --release --bin whisper-server
+          '
+          sudo chown -R "$(id -u):$(id -g)" target
 
       - name: Rename binary
         run: mv target/release/whisper-server whisper-server-linux-arm64
+
+      - name: Verify binary runs on glibc 2.34
+        run: |
+          docker run --rm -v "$PWD":/src -w /src oraclelinux:9 \
+            ./whisper-server-linux-arm64 --help > /dev/null
+          echo "binary is Oracle Linux 9 compatible"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -46,7 +62,7 @@ jobs:
             whisper-discord-bot-linux-arm64
 
   deploy:
-    name: Deploy to Scaleway VM
+    name: Deploy to Oracle Cloud VM
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -66,14 +82,20 @@ jobs:
       - name: Upload binaries to VM
         run: |
           scp whisper-server-linux-arm64 whisper-discord-bot-linux-arm64 \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/root/
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/
 
       - name: Deploy and restart services
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-            mv /root/whisper-server-linux-arm64 /root/whisper-server
-            mv /root/whisper-discord-bot-linux-arm64 /root/whisper-discord-bot
-            chmod +x /root/whisper-server /root/whisper-discord-bot
-            systemctl restart whisper-server
-            systemctl restart whisper-discord-bot
+            set -euo pipefail
+            sudo install -m 755 -o root -g root ~/whisper-server-linux-arm64 /opt/whisper/whisper-server
+            sudo install -m 755 -o root -g root ~/whisper-discord-bot-linux-arm64 /opt/whisper/whisper-discord-bot
+            rm -f ~/whisper-server-linux-arm64 ~/whisper-discord-bot-linux-arm64
+            # binaries must stay labelled bin_t or SELinux blocks systemd exec
+            sudo restorecon -v /opt/whisper/whisper-server /opt/whisper/whisper-discord-bot
+            sudo systemctl restart whisper-server
+            sudo systemctl restart whisper-discord-bot
+            sudo systemctl is-active whisper-server
+            sudo systemctl is-active whisper-discord-bot
+            curl -fsS --retry 5 --retry-delay 2 http://127.0.0.1:1212/health
           EOF

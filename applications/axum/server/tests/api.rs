@@ -254,6 +254,78 @@ async fn create_ephemeral_v1_roundtrips_payload_verbatim() {
 }
 
 #[tokio::test]
+async fn secret_meta_is_non_consuming() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+
+    // Client-encrypted, self-destruct secret: hitting /meta must NOT burn it.
+    let payload = base64_url::encode(&[0x42u8; 12 + 21 + 16]);
+    let resp = server
+        .client
+        .post(server.url("/v1/ephemeral"))
+        .json(&serde_json::json!({
+            "payload": payload,
+            "expiration": expiration,
+            "self_destruct": true,
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let id = resp.json::<serde_json::Value>().await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // First /meta: reports the flags.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}/meta", id)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["exists"], true);
+    assert_eq!(body["client_encrypted"], true);
+    assert_eq!(body["self_destruct"], true);
+
+    // Second /meta: secret was NOT consumed by the first lookup.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}/meta", id)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["exists"], true);
+
+    // And the consuming GET still finds it.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", id)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn secret_meta_returns_404_for_missing() {
+    let server = TestServer::start().await;
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}/meta", uuid::Uuid::new_v4())))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["exists"], false);
+}
+
+#[tokio::test]
 async fn create_ephemeral_v1_rejects_invalid_base64_payload() {
     let server = TestServer::start().await;
     let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
@@ -370,5 +442,34 @@ async fn get_secret_shell_is_noindex() {
     assert!(
         body.contains(r#"<meta name="robots" content="noindex, nofollow" />"#),
         "secret reveal page must stay noindex"
+    );
+}
+
+#[tokio::test]
+async fn static_assets_are_cache_busted_with_version() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    // CSS and JS carry a `?v=` query so a new release busts CDN/browser caches.
+    // Version-agnostic on purpose — only the presence of the cache-buster matters.
+    assert!(
+        body.contains("/assets/css/modern.css?v="),
+        "modern.css must be cache-busted with ?v="
+    );
+    assert!(
+        body.contains("/assets/css/pages.css?v="),
+        "pages.css must be cache-busted with ?v="
+    );
+    assert!(
+        body.contains("/assets/create_secret.js?v="),
+        "create_secret.js must be cache-busted with ?v="
     );
 }

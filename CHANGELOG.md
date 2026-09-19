@@ -1,4 +1,15 @@
 # Changelog
+## 18/09/2026 - https://github.com/quentinved/whisper/pull/21
+- New non-consuming `GET /secret/:id/meta` endpoint (`{ exists, client_encrypted, self_destruct }`): the reveal page now checks a link before fetching it, so a zero-knowledge self-destruct secret is no longer destroyed when the link arrives without its `#` fragment key
+- Reveal page guards the response parsing, can't double-fire, and offers a retry instead of a dead end on a transient failure
+- Create page computes the expiration at submit time (not page load) and uses the local timezone for custom dates
+- CSS and JS are served with a `?v=` version and an immutable `Cache-Control`, so a CDN can no longer serve stale styles after a deploy
+- Server v1.4.0: hosting moved from Scaleway (Paris) to Oracle Cloud (Stockholm) — still in the EU, so data residency is unchanged
+- Release binary is built inside an `oraclelinux:9` container and verified to execute there: Oracle Linux 9 ships glibc 2.34 while the CI runner has 2.39, so a runner-built binary will not start on the deploy target
+- Deploy runs as `opc` via `sudo` into `/opt/whisper` (not `root` into `/root`), relabels binaries `bin_t` for SELinux, and health-checks after restart so a failed deploy fails the job
+- Services run as a dedicated unprivileged `whisper` user with systemd hardening, replacing the drifted run-as-root setup
+- Privacy policy now discloses the hosting provider and the EU hosting location
+
 ## 23/06/2026 - https://github.com/quentinved/whisper/pull/19
 - Zero-knowledge one-time secrets: web and CLI now encrypt in the browser/terminal (AES-256-GCM), the key rides only in the link's `#` fragment, and the server stores ciphertext it can't read — new `POST /v1/ephemeral` endpoint and `client_encrypted` column
 - Click-to-reveal page: secrets are fetched and decrypted only on user action, so link previews and crawlers can't burn a self-destruct secret (drops the user-agent bot sniffing)
