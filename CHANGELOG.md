@@ -1,4 +1,10 @@
 # Changelog
+## 24/09/2026 - https://github.com/quentinved/whisper/pull/22
+- New `whisper-secrets` agent skill: AI coding agents (Claude Code, Cursor, Codex, Copilot, …) offer to manage a project's `.env` with Whisper and never see a secret value. They work from names only (`status`, `.env.whisper`), and any command that prompts for a hidden value or prints the team passphrase link is handed back to the user
+- Claude Code: `/plugin marketplace add quentinved/Whisper`, then `/plugin install whisper-secrets@whisper` (repo-root `.claude-plugin/marketplace.json`, plugin in `plugins/whisper-secrets/`)
+- Other agents: `npx skills add quentinved/Whisper`
+- README and npm README gain a "Use with AI coding agents" section
+
 ## 18/09/2026 - https://github.com/quentinved/whisper/pull/21
 - New non-consuming `GET /secret/:id/meta` endpoint (`{ exists, client_encrypted, self_destruct }`): the reveal page now checks a link before fetching it, so a zero-knowledge self-destruct secret is no longer destroyed when the link arrives without its `#` fragment key
 - Reveal page guards the response parsing, can't double-fire, and offers a retry instead of a dead end on a transient failure
