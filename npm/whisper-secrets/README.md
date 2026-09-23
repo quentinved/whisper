@@ -62,6 +62,16 @@ ws share -e 7d --no-self-destruct       # keep after first view
 ws get https://whisper.example.com/...  # retrieve by URL or ID
 ```
 
+## Use with AI coding agents
+
+Install the [agent skill](https://github.com/quentinved/Whisper/tree/main/plugins/whisper-secrets) and your agent (Claude Code, Cursor, Codex, …) will offer to manage your `.env` with Whisper, without ever seeing a secret value:
+
+```bash
+npx skills add quentinved/Whisper                    # Cursor, Codex, Copilot, …
+# Claude Code: /plugin marketplace add quentinved/Whisper
+#              /plugin install whisper-secrets@whisper
+```
+
 ## How It Works
 
 1. `whisper-secrets init` generates a random passphrase and creates `.whisperrc`

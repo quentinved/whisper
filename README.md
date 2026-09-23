@@ -86,6 +86,19 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 
 > **Tip:** If installed via npm or the shell installer, `ws` is available as a shortcut for `whisper-secrets`.
 
+## Use with AI coding agents
+
+Install the `whisper-secrets` [agent skill](plugins/whisper-secrets/) and your agent will offer to manage the project's `.env` with Whisper. It works only with secret *names*. Any command that would expose a value is handed back to you to run in your own terminal.
+
+```bash
+# Claude Code
+/plugin marketplace add quentinved/Whisper
+/plugin install whisper-secrets@whisper
+
+# Cursor, Codex, Copilot and other agents
+npx skills add quentinved/Whisper
+```
+
 ## How It Works
 
 1. `whisper-secrets init` generates a random passphrase and creates `.whisperrc`

@@ -1,0 +1,17 @@
+{
+  "name": "whisper",
+  "owner": {
+    "name": "Quentin Vedrenne",
+    "url": "https://github.com/quentinved"
+  },
+  "description": "Zero-knowledge secret management for AI coding agents.",
+  "plugins": [
+    {
+      "name": "whisper-secrets",
+      "source": "./plugins/whisper-secrets",
+      "description": "Teaches your AI agent to manage .env secrets with the whisper-secrets CLI — end-to-end encrypted, synced with your team, and never visible to the agent.",
+      "category": "security",
+      "tags": ["secrets", "env", "dotenv", "encryption"]
+    }
+  ]
+}

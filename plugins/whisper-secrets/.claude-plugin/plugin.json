@@ -1,0 +1,13 @@
+{
+  "name": "whisper-secrets",
+  "version": "1.0.0",
+  "description": "Teaches your AI agent to manage .env secrets with the whisper-secrets CLI — end-to-end encrypted, synced with your team, and never visible to the agent.",
+  "author": {
+    "name": "Quentin Vedrenne",
+    "url": "https://github.com/quentinved"
+  },
+  "homepage": "https://whisper.quentinvedrenne.com",
+  "repository": "https://github.com/quentinved/Whisper",
+  "license": "MIT",
+  "keywords": ["secrets", "env", "dotenv", "encryption", "zero-knowledge"]
+}
