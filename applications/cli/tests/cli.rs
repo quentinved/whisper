@@ -109,13 +109,13 @@ impl TestEnv {
         whisper_secrets::env_whisper::set(name, &id).unwrap();
     }
 
-    /// Helper: pull secrets (deletes .env first to avoid overwrite prompt)
+    /// Helper: pull secrets (deletes .env first so no local value needs confirming)
     async fn pull(&self) {
         let env_path = Path::new(".env");
         if env_path.exists() {
             std::fs::remove_file(env_path).unwrap();
         }
-        whisper_secrets::commands::pull::run().await.unwrap();
+        whisper_secrets::commands::pull::run(false).await.unwrap();
     }
 
     /// Helper: read .env file contents as key=value pairs
@@ -354,7 +354,7 @@ async fn teammate_pulls_shared_secrets() {
     std::fs::write(".env.whisper", &env_whisper_content).unwrap();
 
     // Pull secrets
-    whisper_secrets::commands::pull::run().await.unwrap();
+    whisper_secrets::commands::pull::run(false).await.unwrap();
 
     // Assert dev2 gets the same secrets
     let content = std::fs::read_to_string(".env").unwrap();
@@ -486,7 +486,7 @@ async fn pull_with_no_secrets_is_noop() {
     env.init().await;
 
     // Pull with no secrets pushed — should succeed without creating .env
-    whisper_secrets::commands::pull::run().await.unwrap();
+    whisper_secrets::commands::pull::run(false).await.unwrap();
     assert!(!Path::new(".env").exists());
 }
 
@@ -675,7 +675,7 @@ async fn teammate_with_wrong_passphrase_fails_to_decrypt() {
     std::fs::write(".env.whisper", &env_whisper_content).unwrap();
 
     // Pull should fail — wrong passphrase means decryption fails or auth fails
-    let result = whisper_secrets::commands::pull::run().await;
+    let result = whisper_secrets::commands::pull::run(false).await;
     assert!(result.is_err());
 }
 
@@ -852,7 +852,7 @@ where
 
 #[tokio::test]
 async fn pull_errors_when_no_whisperrc() {
-    assert_missing_config(whisper_secrets::commands::pull::run).await;
+    assert_missing_config(|| whisper_secrets::commands::pull::run(false)).await;
 }
 
 #[tokio::test]
@@ -878,4 +878,154 @@ async fn import_errors_when_no_whisperrc() {
 #[tokio::test]
 async fn invite_errors_when_no_whisperrc() {
     assert_missing_config(whisper_secrets::commands::invite::run).await;
+}
+
+#[tokio::test]
+async fn run_errors_when_no_whisperrc() {
+    assert_missing_config(|| async {
+        whisper_secrets::commands::run::prepare(&["true".to_string()])
+            .await
+            .map(|_| ())
+    })
+    .await;
+}
+
+/// Run the compiled CLI in the current directory with a non-interactive stdin,
+/// the way CI and AI agents invoke it. Async so the in-process test server keeps
+/// serving while the binary talks to it.
+async fn run_cli(args: &[&str]) -> std::process::Output {
+    tokio::process::Command::new(env!("CARGO_BIN_EXE_whisper-secrets"))
+        .args(args)
+        .current_dir(std::env::current_dir().unwrap())
+        .stdin(std::process::Stdio::null())
+        .env("DO_NOT_TRACK", "1")
+        .output()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn pull_updates_tracked_values_and_keeps_local_entries() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+    std::fs::write(".env", "# local notes\nAPI_KEY=stale\nLOCAL_ONLY=1\n").unwrap();
+
+    let output = run_cli(&["pull", "--yes"]).await;
+
+    assert!(output.status.success(), "{output:?}");
+    let content = std::fs::read_to_string(".env").unwrap();
+    assert_eq!(content, "# local notes\nAPI_KEY=fresh\nLOCAL_ONLY=1\n");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Updated API_KEY"), "{stdout}");
+}
+
+#[tokio::test]
+async fn pull_without_value_changes_needs_no_confirmation() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+    std::fs::write(".env", "LOCAL_ONLY=1\n").unwrap();
+
+    let output = run_cli(&["pull"]).await;
+
+    assert!(output.status.success(), "{output:?}");
+    let env_vars = env.read_env();
+    assert_eq!(env_vars["API_KEY"], "fresh");
+    assert_eq!(env_vars["LOCAL_ONLY"], "1");
+}
+
+#[tokio::test]
+async fn pull_replacing_a_local_value_without_a_terminal_asks_for_yes() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+    std::fs::write(".env", "API_KEY=stale\n").unwrap();
+
+    let output = run_cli(&["pull"]).await;
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("API_KEY"),
+        "should name the value: {stderr}"
+    );
+    assert!(stderr.contains("--yes"), "should point to --yes: {stderr}");
+    assert_eq!(env.read_env()["API_KEY"], "stale", ".env must be untouched");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn run_injects_secrets_without_writing_env() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+    env.push_secret("MULTILINE", "line1\nline2").await;
+
+    let check = r#"test "$API_KEY" = fresh && test "$MULTILINE" = "$(printf 'line1\nline2')""#;
+    let output = run_cli(&["run", "--", "sh", "-c", check]).await;
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(!Path::new(".env").exists(), "run must not write .env");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn run_replaces_the_process_with_the_command() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+
+    // `exec` keeps the PID: the command runs as the very process we spawned,
+    // which is what lets signals from Docker or CI reach it directly.
+    let child = tokio::process::Command::new(env!("CARGO_BIN_EXE_whisper-secrets"))
+        .args(["run", "--", "sh", "-c", "echo $$"])
+        .current_dir(std::env::current_dir().unwrap())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .env("DO_NOT_TRACK", "1")
+        .spawn()
+        .unwrap();
+    let pid = child.id().unwrap();
+    let output = child.wait_with_output().await.unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        pid.to_string()
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn run_forwards_child_exit_code() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+    env.push_secret("API_KEY", "fresh").await;
+
+    let output = run_cli(&["run", "--", "sh", "-c", "exit 7"]).await;
+
+    assert_eq!(output.status.code(), Some(7));
+}
+
+#[tokio::test]
+async fn run_reports_missing_program() {
+    let env = TestEnv::start().await;
+    env.enter_work_dir();
+    env.init().await;
+
+    let output = run_cli(&["run", "--", "whisper-no-such-program"]).await;
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Failed to run 'whisper-no-such-program'"),
+        "{stderr}"
+    );
 }

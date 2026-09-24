@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 pub const ENV_WHISPER_FILE: &str = ".env.whisper";
-const ENV_FILE: &str = ".env";
+pub const ENV_FILE: &str = ".env";
 
 /// Read the local .env file into a BTreeMap of key=value pairs.
 /// Returns an empty map if .env doesn't exist. Warns on permission errors.

@@ -31,7 +31,7 @@ Manage your project's `.env` across a team without storing plaintext anywhere. S
 whisper-secrets init                    # set up a project, get a share link for teammates
 whisper-secrets import                  # encrypt & upload every entry from .env
 whisper-secrets push STRIPE_SECRET_KEY  # add secrets individually
-whisper-secrets pull                    # download & decrypt to .env
+whisper-secrets pull                    # decrypt into .env (keeps local-only entries)
 ```
 
 Commit `.env.whisper` (UUIDs only, no plaintext) to git. Teammates run `whisper-secrets join <link>` to clone access and auto-pull.
@@ -62,7 +62,9 @@ whisper-secrets init --url https://your.host  # use your own server
 whisper-secrets import                        # upload existing .env
 whisper-secrets push SECRET_NAME              # encrypt & upload one secret
 whisper-secrets push                          # pick untracked .env entries interactively
-whisper-secrets pull                          # download & decrypt to .env
+whisper-secrets pull                          # decrypt into .env (keeps local-only entries)
+whisper-secrets pull --yes                    # replace changed local values without asking (CI, AI agents)
+whisper-secrets run -- npm start              # run a command with secrets injected, no .env on disk
 whisper-secrets rotate SECRET_NAME            # update a secret in-place
 whisper-secrets remove SECRET_NAME            # delete a secret
 whisper-secrets status                        # show tracked, missing, and untracked secrets
@@ -85,6 +87,19 @@ whisper-secrets get https://whisper.example.com/...  # retrieve by URL or ID
 ```
 
 > **Tip:** If installed via npm or the shell installer, `ws` is available as a shortcut for `whisper-secrets`.
+
+## Use with AI coding agents
+
+**Stop being scared to share your .env with your team.** Install the `whisper-secrets` [agent skill](plugins/whisper-secrets/) and your agent will offer to manage the project's `.env` with Whisper. It works only with secret *names*: it runs your app and tests through `whisper-secrets run --`, so values never enter the conversation. Any command that would expose a value is handed back to you to run in your own terminal. When setup is done, it can also commit `.env.whisper` (if you want) and add a setup section to your README.
+
+```bash
+# Claude Code
+/plugin marketplace add quentinved/Whisper
+/plugin install whisper-secrets@whisper
+
+# Cursor, Codex, Copilot and other agents
+npx skills add quentinved/Whisper
+```
 
 ## How It Works
 

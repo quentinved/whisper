@@ -8,5 +8,6 @@ pub mod pull;
 pub mod push;
 pub mod remove;
 pub mod rotate;
+pub mod run;
 pub mod share;
 pub mod status;

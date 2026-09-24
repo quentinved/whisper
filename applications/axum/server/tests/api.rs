@@ -427,6 +427,52 @@ async fn integrations_page_has_its_own_canonical() {
 }
 
 #[tokio::test]
+async fn integrations_page_lists_ai_coding_agents() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/integrations"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(body.contains("AI coding agents"), "missing AI agents card");
+    assert!(
+        body.contains("npx skills add quentinved/Whisper"),
+        "card must show how to install the skill"
+    );
+    assert!(
+        body.contains(r#"href="/docs/secrets#ai-agents""#),
+        "card must link to the setup guide"
+    );
+}
+
+#[tokio::test]
+async fn cli_docs_cover_agents_run_and_pull() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/docs/secrets"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(
+        body.contains(r#"id="ai-agents""#),
+        "integrations card links to #ai-agents"
+    );
+    assert!(body.contains("/plugin install whisper-secrets@whisper"));
+    assert!(body.contains("whisper-secrets run -- npm start"));
+    assert!(body.contains("whisper-secrets pull --yes"));
+}
+
+#[tokio::test]
 async fn get_secret_shell_is_noindex() {
     let server = TestServer::start().await;
     let body = server

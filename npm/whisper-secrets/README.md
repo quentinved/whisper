@@ -40,7 +40,9 @@ ws init --url https://your.host  # use your own server
 ws import                        # upload existing .env
 ws push SECRET_NAME              # encrypt & upload one secret
 ws push                          # pick untracked .env entries interactively
-ws pull                          # download & decrypt to .env
+ws pull                          # decrypt into .env (keeps local-only entries)
+ws pull --yes                    # replace changed local values without asking (CI, AI agents)
+ws run -- npm start              # run a command with secrets injected, no .env on disk
 ws rotate SECRET_NAME            # update a secret in-place
 ws remove SECRET_NAME            # delete a secret
 ws status                        # show tracked, missing, and untracked secrets
@@ -60,6 +62,16 @@ ws share                                # 1h, self-destruct
 ws share -e 24h                         # custom expiration
 ws share -e 7d --no-self-destruct       # keep after first view
 ws get https://whisper.example.com/...  # retrieve by URL or ID
+```
+
+## Use with AI coding agents
+
+**Stop being scared to share your .env with your team.** Install the [agent skill](https://github.com/quentinved/Whisper/tree/main/plugins/whisper-secrets) and your agent (Claude Code, Cursor, Codex, …) will offer to manage your `.env` with Whisper, without ever seeing a secret value:
+
+```bash
+npx skills add quentinved/Whisper                    # Cursor, Codex, Copilot, …
+# Claude Code: /plugin marketplace add quentinved/Whisper
+#              /plugin install whisper-secrets@whisper
 ```
 
 ## How It Works

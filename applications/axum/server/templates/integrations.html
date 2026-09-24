@@ -112,6 +112,7 @@
       <li><code>whisper-secrets init</code> &mdash; set up a project</li>
       <li><code>whisper-secrets push SECRET_NAME</code> &mdash; encrypt &amp; upload</li>
       <li><code>whisper-secrets pull</code> &mdash; download &amp; decrypt to .env</li>
+      <li><code>whisper-secrets run -- npm start</code> &mdash; run with secrets injected, no .env on disk</li>
     </ul>
     <a href="/docs/secrets" class="integration-install" data-platform="cli">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -119,6 +120,33 @@
         <line x1="12" y1="19" x2="20" y2="19"></line>
       </svg>
       Install &amp; Docs
+    </a>
+  </div>
+
+  <!-- AI coding agents -->
+  <div class="integration-card">
+    <div class="integration-header">
+      <div class="integration-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+          <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"></path>
+        </svg>
+      </div>
+      <h3>AI coding agents</h3>
+      <span class="badge badge-available">Available</span>
+    </div>
+    <p class="integration-desc"><strong>Stop being scared to share your <code>.env</code> with your team.</strong> Claude Code, Cursor, Codex and other AI coding agents manage it with whisper-secrets: they set it up, sync it and run your project with it &mdash; without ever seeing a value.</p>
+    <ul class="integration-commands">
+      <li><code>npx skills add quentinved/Whisper</code> &mdash; Cursor, Codex, Copilot&hellip;</li>
+      <li><code>/plugin install whisper-secrets@whisper</code> &mdash; Claude Code, after <code>/plugin marketplace add quentinved/Whisper</code></li>
+      <li><code>whisper-secrets run -- npm start</code> &mdash; your agent runs the app with secrets it never sees</li>
+    </ul>
+    <a href="/docs/secrets#ai-agents" class="integration-install" data-platform="ai-agents">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+        <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"></path>
+      </svg>
+      Setup guide
     </a>
   </div>
 

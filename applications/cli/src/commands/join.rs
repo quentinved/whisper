@@ -73,7 +73,7 @@ pub async fn run(target: &ShareTarget) -> Result<(), CliError> {
             "{} .env.whisper detected, pulling secrets...",
             style("auto:").cyan().bold()
         );
-        pull::run().await?;
+        pull::run(false).await?;
     } else {
         eprintln!();
         eprintln!(
