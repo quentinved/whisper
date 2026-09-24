@@ -1,4 +1,8 @@
 # Changelog
+## 25/09/2026 - https://github.com/quentinved/whisper/pull/23
+- Fix the CLI release: npm 12 dropped Node 20, so `npm install -g npm@latest` failed on the release runners and v1.1.0 never reached npm. The release now runs on Node 24 LTS and pins `npm@11` (Trusted Publishing needs npm >= 11.5.1)
+- Fix an `unused_mut` warning in `run` that only shows up on Windows. CI now runs clippy on the CLI on Windows too, so code that only compiles off Unix is checked
+- `RELEASING.md`: how to recover from a failed release (delete the draft release and tag, then tag the fixed `main` again) and how to tag `origin/main` without a clean checkout
 ## 24/09/2026 - https://github.com/quentinved/whisper/pull/22
 - New `whisper-secrets` agent skill: AI coding agents (Claude Code, Cursor, Codex, Copilot, …) offer to manage a project's `.env` with Whisper and never see a secret value. They work from names only (`status`, `.env.whisper`), run the app and tests through `whisper-secrets run`, and hand any command that prompts for a hidden value or prints the team passphrase link back to the user
 - When setup is done, the agent offers to commit `.env.whisper` (only if the user wants), add an "Environment setup" section to the project README, generate `.env.example` from the tracked names, and add a note to `CLAUDE.md` / `AGENTS.md`

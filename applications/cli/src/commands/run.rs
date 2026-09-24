@@ -23,10 +23,11 @@ pub async fn prepare(command: &[String]) -> Result<Command, CliError> {
 /// Replace this process with `command`, so it receives signals (Ctrl+C,
 /// SIGTERM from Docker or CI) directly and its exit code becomes ours.
 /// Only returns if the command could not be started.
-pub async fn hand_over(mut command: Command) -> CliError {
+pub async fn hand_over(command: Command) -> CliError {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
+        let mut command = command;
         let error = command.exec();
         spawn_error(&command, error)
     }

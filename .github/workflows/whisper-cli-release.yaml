@@ -208,13 +208,15 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish platform npm package
         shell: bash
         run: |
-          npm install -g npm@latest
+          # Trusted Publishing needs npm >= 11.5.1. Pin the major: npm@latest
+          # can drop support for our Node version (npm 12 did for Node 20).
+          npm install -g npm@11
           cd npm
           VERSION="${{ needs.create-release.outputs.version }}"
           export version="$VERSION"
@@ -251,13 +253,15 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: "https://registry.npmjs.org"
 
       - name: Update version and publish
         shell: bash
         run: |
-          npm install -g npm@latest
+          # Trusted Publishing needs npm >= 11.5.1. Pin the major: npm@latest
+          # can drop support for our Node version (npm 12 did for Node 20).
+          npm install -g npm@11
           cd npm/whisper-secrets
           VERSION="${{ needs.create-release.outputs.version }}"
 
