@@ -19,8 +19,8 @@ Merging a PR releases nothing except the agent skill. After merging, trigger whi
 2. Merge the PR.
 3. Tag `main` and push the tag:
    ```bash
-   git checkout main && git pull
-   git tag vX.Y.Z && git push origin vX.Y.Z
+   git fetch origin
+   git tag vX.Y.Z origin/main && git push origin vX.Y.Z
    ```
 4. Watch the **CLI Release** run (`gh run watch`, or the Actions tab). It:
    - runs fmt, clippy and the unit and CLI tests;
@@ -34,7 +34,22 @@ Merging a PR releases nothing except the agent skill. After merging, trigger whi
    npm install -g whisper-secrets@latest && whisper-secrets --version
    ```
 
-If the tag run fails after the tag exists, fix the problem on `main`, then re-run it from **Actions → CLI Release → Run workflow** with the version (without the `v`).
+If the run fails, first check npm (`npm view whisper-secrets@X.Y.Z version`):
+
+- **Nothing was published** (the usual case: it failed before or during the builds):
+  1. Fix the problem in a PR and merge it. Keep the same version.
+  2. Delete the draft release and the tag.
+  3. Tag the fixed `main` again.
+
+  "Re-run jobs" doesn't work here: it reuses the workflow file from the old tagged commit. "Run workflow" doesn't either, because the draft release already exists.
+  ```bash
+  gh release delete vX.Y.Z --yes
+  git push origin :refs/tags/vX.Y.Z && git tag -d vX.Y.Z
+  git fetch origin && git tag vX.Y.Z origin/main && git push origin vX.Y.Z
+  ```
+- **Some packages were published**: npm never lets you reuse a version. Bump to the next patch version and release that instead.
+
+You don't need a clean checkout to tag: `git tag vX.Y.Z origin/main` tags the remote `main` directly, so uncommitted work stays where it is.
 
 ## Website and server
 
@@ -44,9 +59,9 @@ If the tag run fails after the tag exists, fix the problem on `main`, then re-ru
    ```
    You must bump it when CSS or JS changes: it's the `?v=` cache-buster on static assets. It is also shown in the site footer, which is how you can tell a deploy went out.
 2. Merge the PR.
-3. Start the deploy:
+3. Start the deploy. The workflow needs a repo admin, so run it from the owner's account:
    ```bash
-   gh workflow run whisper-release.yaml --ref main
+   gh workflow run whisper-release.yaml --repo quentinved/Whisper --ref main
    ```
    Or use **Actions → Release & Deploy → Run workflow** on `main`. It:
    - runs the tests;

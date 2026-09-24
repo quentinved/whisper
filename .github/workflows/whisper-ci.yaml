@@ -1,7 +1,7 @@
 # This workflow runs checks on Rust and TypeScript code.
 # It runs on pull requests and on pushes to main branch.
 #   - check if the code is correctly formatted
-#   - check if there are no unhandled clippy warnings
+#   - check if there are no unhandled clippy warnings (plus the CLI on Windows)
 #   - check if the code compiles
 #   - run unit tests
 #   - check the agent skill (manifests, SKILL.md, secret-file hook)
@@ -46,6 +46,17 @@ jobs:
             - uses: actions-rust-lang/setup-rust-toolchain@v1
             - run: rustup component add clippy
             - run: cargo clippy --workspace --all-targets --features test-utils -- -D warnings
+
+    lint-cli-windows:
+        name: Check CLI clippy warnings on Windows
+        runs-on: windows-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  components: clippy
+            - run: cargo clippy -p whisper-secrets --lib --bins -- -D warnings
 
     build:
         name: Build
