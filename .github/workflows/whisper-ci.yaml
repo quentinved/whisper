@@ -4,6 +4,7 @@
 #   - check if there are no unhandled clippy warnings
 #   - check if the code compiles
 #   - run unit tests
+#   - check the agent skill (manifests, SKILL.md, secret-file hook)
 #   - lint Discord bot (Biome)
 
 on:
@@ -91,6 +92,14 @@ jobs:
               uses: actions/checkout@v4
             - uses: actions-rust-lang/setup-rust-toolchain@v1
             - run: cargo test -p whisper-secrets --test cli -- --test-threads=1
+
+    agent-skill:
+        name: Agent skill checks
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+            - run: sh plugins/test-whisper-secrets.sh
 
     discord-lint:
         name: Discord bot lint

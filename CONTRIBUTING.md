@@ -71,6 +71,7 @@ cargo test -p whisper-core                                     # Domain
 cargo test -p whisper-crypto                                   # Encryption
 cargo test -p whisper-secrets --test cli -- --test-threads=1   # CLI integration (must be single-threaded)
 cargo test -p whisper-core --features test-utils --test cucumber  # BDD
+sh plugins/test-whisper-secrets.sh                             # Agent skill + Claude Code plugin
 ```
 
 Every new feature needs tests. Bug fixes should include a regression test.
@@ -99,7 +100,7 @@ We review PRs on a best-effort basis — please be patient. A green CI and a cle
 
 ## Releasing
 
-Releases are handled by maintainers. See [CLAUDE.md](CLAUDE.md#releasing-the-cli--npm-package) for the internal process if you're curious.
+Releases are handled by maintainers. See [RELEASING.md](RELEASING.md) for how the CLI, the website and the agent skill are released.
 
 ## License
 

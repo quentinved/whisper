@@ -103,6 +103,19 @@ pub enum CliError {
     #[error("Cannot prompt for value: not running interactively. Run this command in a terminal, or use `whisper-secrets import` for bulk uploads.")]
     NotATerminal,
 
+    #[error("Pull would replace the local values listed above, but this isn't an interactive terminal to confirm. Re-run with `whisper-secrets pull --yes` to replace them.")]
+    PullNeedsConfirmation,
+
+    #[error("No command given. Usage: whisper-secrets run -- <command> [args...]")]
+    MissingCommand,
+
+    #[error("Failed to run '{program}': {source}")]
+    CommandFailed {
+        program: String,
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("This is a zero-knowledge link — it needs the decryption key after '#'. Paste the complete link, including the #k=... part.")]
     MissingFragmentKey,
 

@@ -3,6 +3,7 @@ use clap_complete::Shell;
 use console::style;
 use whisper_secrets::commands;
 use whisper_secrets::commands::get::ShareTarget;
+use whisper_secrets::error::CliError;
 use whisper_secrets::telemetry;
 
 #[derive(Parser)]
@@ -51,7 +52,17 @@ enum Commands {
         name: Option<String>,
     },
     /// Download and decrypt all secrets into a .env file
-    Pull,
+    Pull {
+        /// Replace changed local values without asking (for scripts, CI and AI agents)
+        #[arg(long, short)]
+        yes: bool,
+    },
+    /// Run a command with your secrets as environment variables, without writing .env
+    Run {
+        /// The command to run, after `--` (e.g. `whisper-secrets run -- npm start`)
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
+    },
     /// Delete a secret from the server and remove it from .env.whisper
     Remove {
         /// Environment variable name to delete
@@ -94,7 +105,35 @@ async fn main() {
     }
 
     let command_name = command_name(&cli.command);
-    let result = match cli.command {
+    let outcome = execute(cli.command).await;
+
+    if let Some(handle) = telemetry::track_command(command_name, outcome.is_ok()) {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), handle).await;
+    }
+
+    let error = match outcome {
+        Ok(Outcome::Done) => return,
+        Ok(Outcome::HandOver(child)) => commands::run::hand_over(child).await,
+        Err(e) => e,
+    };
+    eprintln!("{} {}", style("error:").red().bold(), error);
+    std::process::exit(1);
+}
+
+/// What `main` does once a command has finished and telemetry is sent.
+enum Outcome {
+    Done,
+    /// `run` replaces this process with the user's command, so it is the last step.
+    HandOver(std::process::Command),
+}
+
+async fn execute(command: Commands) -> Result<Outcome, CliError> {
+    let result = match command {
+        Commands::Run { command } => {
+            return commands::run::prepare(&command)
+                .await
+                .map(Outcome::HandOver)
+        }
         Commands::Get { target } => commands::get::run(&target).await,
         Commands::Join { link } => commands::join::run(&link).await,
         Commands::Invite => commands::invite::run().await,
@@ -104,7 +143,7 @@ async fn main() {
             manual_passphrase,
         } => commands::init::run(url.as_deref(), manual_passphrase).await,
         Commands::Push { name } => commands::push::run(name.as_deref()).await,
-        Commands::Pull => commands::pull::run().await,
+        Commands::Pull { yes } => commands::pull::run(yes).await,
         Commands::Remove { name } => commands::remove::run(&name).await,
         Commands::Rotate { name } => commands::rotate::run(&name).await,
         Commands::Share {
@@ -117,15 +156,7 @@ async fn main() {
             Ok(())
         }
     };
-
-    if let Some(handle) = telemetry::track_command(command_name, result.is_ok()) {
-        let _ = tokio::time::timeout(std::time::Duration::from_millis(100), handle).await;
-    }
-
-    if let Err(e) = result {
-        eprintln!("{} {}", style("error:").red().bold(), e);
-        std::process::exit(1);
-    }
+    result.map(|()| Outcome::Done)
 }
 
 fn command_name(cmd: &Commands) -> &'static str {
@@ -136,7 +167,8 @@ fn command_name(cmd: &Commands) -> &'static str {
         Commands::Invite => "invite",
         Commands::Import => "import",
         Commands::Push { .. } => "push",
-        Commands::Pull => "pull",
+        Commands::Pull { .. } => "pull",
+        Commands::Run { .. } => "run",
         Commands::Remove { .. } => "remove",
         Commands::Rotate { .. } => "rotate",
         Commands::Share { .. } => "share",

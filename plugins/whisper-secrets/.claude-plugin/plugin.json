@@ -1,7 +1,7 @@
 {
   "name": "whisper-secrets",
   "version": "1.0.0",
-  "description": "Teaches your AI agent to manage .env secrets with the whisper-secrets CLI — end-to-end encrypted, synced with your team, and never visible to the agent.",
+  "description": "Stop being scared to share your .env with your team. Your AI agent manages it with the whisper-secrets CLI — end-to-end encrypted, synced through git, and it never sees a value.",
   "author": {
     "name": "Quentin Vedrenne",
     "url": "https://github.com/quentinved"

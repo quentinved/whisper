@@ -15,7 +15,7 @@ pub async fn integrations(State(app_state): State<Arc<AppState>>) -> Integration
         app_state.url(),
         "/integrations",
         "Integrations — Whisper",
-        "Integrate Whisper with Slack, Discord, Raycast and Microsoft Teams. Share encrypted, self-destructing secrets directly from your favorite tools.",
+        "Integrate Whisper with Slack, Discord, Raycast, AI coding agents like Claude Code and Cursor, and Microsoft Teams. Share encrypted, self-destructing secrets directly from your favorite tools.",
     );
     IntegrationsHtml { seo }
 }
@@ -25,7 +25,7 @@ pub async fn docs_secrets(State(app_state): State<Arc<AppState>>) -> DocsSecrets
         app_state.url(),
         "/docs/secrets",
         "whisper-secrets CLI Docs — Whisper",
-        "Documentation for whisper-secrets: a zero-knowledge .env secret manager. Push and pull encrypted secrets from the command line. No signup required.",
+        "Documentation for whisper-secrets: a zero-knowledge .env secret manager. Push, pull and run with encrypted secrets from the command line or your AI coding agent. No signup required.",
     );
     DocsSecretsHtml { seo }
 }
