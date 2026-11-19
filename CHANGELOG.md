@@ -5,6 +5,8 @@
 - `POST /v1/ephemeral` accepts an opt-in `track_delivery: true` and then also returns a `status_token`. Clients that don't send it (CLI, Discord, Raycast) get exactly the same response as before; Slack is unchanged
 - New `secret_receipts` table (migration `0004`) stores only the first time a tracked secret is revealed. It outlives a self-destruct secret and is deleted 7 days after the secret expires by the existing cleanup job. Peeking with `/secret/:id/meta` or opening the reveal page does not count as opened; a reveal never fails because the receipt could not be stamped
 - Privacy policy: discloses the first-opened timestamp, its 7-day retention, and what the browser's localStorage now holds
+- iOS app (`applications/ios/`, now in the repo): new **Sent** tab (pull to refresh, swipe to remove) and a live **Delivery** card on the "Link ready" screen, refreshed when the app comes back to the foreground. The list lives in `UserDefaults` and keeps each entry's server, so changing servers in Settings doesn't break older entries. UI tests cover Waiting → Opened. Comes with Xcode entries in `.gitignore` and the `interop_vector` Rust example its test scripts use; analytics now count iOS as `ios` instead of `unknown`
+- Fix the Windows CLI clippy job: newer clippy flags `large_enum_variant` on the CLI's `Outcome` enum (`std::process::Command` is 200+ bytes on Windows), so the command is now boxed
 - Server v1.5.0
 ## 25/09/2026 - https://github.com/quentinved/whisper/pull/23
 - Fix the CLI release: npm 12 dropped Node 20, so `npm install -g npm@latest` failed on the release runners and v1.1.0 never reached npm. The release now runs on Node 24 LTS and pins `npm@11` (Trusted Publishing needs npm >= 11.5.1)

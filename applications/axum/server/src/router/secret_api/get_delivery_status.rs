@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -26,14 +27,17 @@ pub struct Output {
 
 impl From<DeliveryReceipt> for Output {
     fn from(receipt: DeliveryReceipt) -> Self {
+        // Whole seconds + `Z`: what every client's ISO 8601 parser accepts
+        // (Swift's `.iso8601` rejects fractional seconds).
+        let rfc3339 = |at: DateTime<Utc>| at.to_rfc3339_opts(SecondsFormat::Secs, true);
         let (state, opened_at) = match receipt.status() {
             DeliveryStatus::Waiting => ("waiting", None),
-            DeliveryStatus::Opened { opened_at } => ("opened", Some(opened_at.to_rfc3339())),
+            DeliveryStatus::Opened { opened_at } => ("opened", Some(rfc3339(opened_at))),
             DeliveryStatus::Expired => ("expired", None),
         };
         Self {
             state,
-            expires_at: receipt.expiration().value().to_rfc3339(),
+            expires_at: rfc3339(receipt.expiration().value()),
             opened_at,
         }
     }
