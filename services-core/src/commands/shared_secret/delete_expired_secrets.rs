@@ -1,4 +1,8 @@
-use crate::contracts::repositories::shared_secret_repository::SharedSecretRepository;
+use crate::contracts::repositories::shared_secret_repository::{
+    SharedSecretRepository, SharedSecretRepositoryError,
+};
+use crate::entities::delivery_receipt::RECEIPT_RETENTION_DAYS;
+use chrono::{Duration, Utc};
 use thiserror::Error;
 
 pub struct DeleteExpiredSecrets {}
@@ -24,12 +28,20 @@ impl DeleteExpiredSecrets {
         &self,
         shared_secret_repository: &impl SharedSecretRepository,
     ) -> Result<u64, DeleteExpiredSecretsError> {
-        shared_secret_repository
+        let to_internal =
+            |err: SharedSecretRepositoryError| DeleteExpiredSecretsError::InternalError {
+                reason: err.to_string(),
+            };
+        let deleted = shared_secret_repository
             .delete_all_expired()
             .await
-            .map_err(|err| DeleteExpiredSecretsError::InternalError {
-                reason: err.to_string(),
-            })
+            .map_err(to_internal)?;
+        let receipt_cutoff = Utc::now() - Duration::days(RECEIPT_RETENTION_DAYS);
+        shared_secret_repository
+            .delete_receipts_expired_before(receipt_cutoff)
+            .await
+            .map_err(to_internal)?;
+        Ok(deleted)
     }
 }
 
@@ -107,5 +119,43 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(repository.count(), 1); // Nothing deleted
+    }
+
+    #[tokio::test]
+    async fn receipts_are_kept_for_the_retention_window_after_expiry() {
+        use crate::entities::delivery_receipt::DeliveryReceipt;
+        use crate::values_object::shared_secret::status_token::StatusToken;
+
+        let repository = MockSharedSecretRepository::new();
+        let receipt_expired = |days_ago: i64| {
+            DeliveryReceipt::new(
+                StatusToken::generate(),
+                SecretId::generate(),
+                SecretExpiration::from_datetime(Utc::now() - Duration::days(days_ago)),
+                None,
+            )
+        };
+        let stale = receipt_expired(RECEIPT_RETENTION_DAYS + 1);
+        let recent = receipt_expired(1);
+        repository.save_receipt(stale.clone()).await.unwrap();
+        repository.save_receipt(recent.clone()).await.unwrap();
+
+        DeleteExpiredSecrets::new()
+            .handle(&repository)
+            .await
+            .unwrap();
+
+        let stale_token = stale.status_token();
+        let recent_token = recent.status_token();
+        assert!(repository
+            .get_receipt(&stale_token)
+            .await
+            .unwrap()
+            .is_none());
+        assert!(repository
+            .get_receipt(&recent_token)
+            .await
+            .unwrap()
+            .is_some());
     }
 }

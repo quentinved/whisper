@@ -54,6 +54,13 @@ impl GetSecretById {
             return Ok(None);
         };
 
+        // Best-effort: the adapter logs failures, and a reveal must never fail
+        // because its receipt could not be stamped (a self-destruct row is
+        // already gone at this point).
+        let _ = shared_secret_repository
+            .mark_receipt_opened(&self.secret_id)
+            .await;
+
         let self_destruct = shared_secret.self_destruct();
 
         if shared_secret.client_encrypted() {
@@ -181,6 +188,63 @@ mod tests {
             result,
             Some(RetrievedSecret::ClientEncrypted {
                 payload: expected_payload,
+                self_destruct: false
+            })
+        );
+    }
+
+    fn tracked_secret(repository: &MockSharedSecretRepository) -> SecretId {
+        let secret_id = SecretId::generate();
+        let expiration = SecretExpiration::from_datetime(Utc::now() + Duration::hours(1));
+        let encrypted = MockEncryption.encrypt_secret("tracked").unwrap();
+        repository.insert(SharedSecret::new(secret_id, encrypted, expiration, false));
+        secret_id
+    }
+
+    #[tokio::test]
+    async fn first_reveal_stamps_the_receipt_once() {
+        use crate::commands::shared_secret::create_delivery_receipt::CreateDeliveryReceipt;
+
+        let repository = MockSharedSecretRepository::new();
+        let secret_id = tracked_secret(&repository);
+        let expiration = SecretExpiration::from_datetime(Utc::now() + Duration::hours(1));
+        CreateDeliveryReceipt::new(secret_id, expiration)
+            .handle(&repository)
+            .await
+            .unwrap();
+        assert!(repository
+            .receipt_for(&secret_id)
+            .unwrap()
+            .opened_at()
+            .is_none());
+
+        let command = GetSecretById::new(secret_id);
+        command.handle(&MockEncryption, &repository).await.unwrap();
+        let first_open = repository.receipt_for(&secret_id).unwrap().opened_at();
+        assert!(first_open.is_some());
+
+        command.handle(&MockEncryption, &repository).await.unwrap();
+        assert_eq!(
+            repository.receipt_for(&secret_id).unwrap().opened_at(),
+            first_open,
+            "a second reveal must not move the first-open time"
+        );
+    }
+
+    #[tokio::test]
+    async fn reveal_succeeds_when_the_receipt_cannot_be_stamped() {
+        let repository = MockSharedSecretRepository::with_failing_receipts();
+        let secret_id = tracked_secret(&repository);
+
+        let result = GetSecretById::new(secret_id)
+            .handle(&MockEncryption, &repository)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result,
+            Some(RetrievedSecret::Plain {
+                secret: "tracked".to_string(),
                 self_destruct: false
             })
         );

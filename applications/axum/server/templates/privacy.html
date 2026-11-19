@@ -1,7 +1,7 @@
 {% extends "layout.html" %} {% block content %}
 <div class="legal-content">
   <h2 style="margin-top: 0">Privacy Policy</h2>
-  <p class="legal-date">Last updated: September 18, 2026</p>
+  <p class="legal-date">Last updated: November 19, 2026</p>
 
   <h2>What Whisper Does</h2>
   <p>
@@ -17,6 +17,13 @@
       <strong>Secret content</strong> &mdash; encrypted at rest with
       AES-256-GCM. We cannot read your secrets. They are automatically deleted
       when they expire or after the first retrieval if self-destruct is enabled.
+    </li>
+    <li>
+      <strong>Delivery status</strong> &mdash; for secrets created on the
+      website or in the Whisper iOS app, we record the time the secret is first
+      opened, so the sender can see whether it was delivered. Only a timestamp:
+      no IP address, device or identity of the person who opened it. Only the
+      sender holds the status key that reads it; the share link cannot.
     </li>
     <li>
       <strong>Slack metadata</strong> &mdash; when using the /whisper slash
@@ -38,7 +45,11 @@
   <ul>
     <li>Email addresses or personal information</li>
     <li>
-      Cookies (only a theme preference stored in your browser's localStorage)
+      Cookies. Your browser's localStorage holds only your theme preference and
+      the status keys of secrets you sent from that browser, so you can see
+      whether they were opened &mdash; never the secret or its link. You can
+      remove any entry from the list at any time. The iOS app keeps the same
+      list on your device.
     </li>
     <li>IP addresses or access logs beyond standard server operation</li>
   </ul>
@@ -48,6 +59,10 @@
     <li>
       Secret content is encrypted, stored temporarily, and deleted after
       expiration or first retrieval.
+    </li>
+    <li>
+      The first-opened time is shown only to the sender, through their status
+      key.
     </li>
     <li>
       Slack command metadata is used only to process your request and return a
@@ -63,6 +78,10 @@
     </li>
     <li>
       All secrets are permanently deleted when their expiration time is reached.
+    </li>
+    <li>
+      Delivery status records are permanently deleted 7 days after their secret
+      expires.
     </li>
     <li>A cleanup job runs every minute to remove expired secrets.</li>
   </ul>

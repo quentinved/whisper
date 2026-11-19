@@ -518,4 +518,114 @@ async fn static_assets_are_cache_busted_with_version() {
         body.contains("/assets/create_secret.js?v="),
         "create_secret.js must be cache-busted with ?v="
     );
+    assert!(
+        body.contains("/assets/sent_secrets.js?v="),
+        "sent_secrets.js must be cache-busted with ?v="
+    );
+}
+
+async fn create_ephemeral_json(server: &TestServer, body: serde_json::Value) -> serde_json::Value {
+    let resp = server
+        .client
+        .post(server.url("/v1/ephemeral"))
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    resp.json().await.unwrap()
+}
+
+async fn delivery_status(server: &TestServer, token: &str) -> reqwest::Response {
+    server
+        .client
+        .get(server.url(&format!("/v1/status/{}", token)))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn ephemeral_without_tracking_returns_no_status_token() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+        }),
+    )
+    .await;
+    assert!(body["id"].is_string());
+    assert!(
+        body.get("status_token").is_none(),
+        "existing clients must see an unchanged response"
+    );
+}
+
+#[tokio::test]
+async fn delivery_status_goes_from_waiting_to_opened_and_survives_self_destruct() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+            "self_destruct": true,
+            "track_delivery": true,
+        }),
+    )
+    .await;
+    let id = body["id"].as_str().unwrap().to_string();
+    let token = body["status_token"].as_str().unwrap().to_string();
+
+    let resp = delivery_status(&server, &token).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()["cache-control"], "no-store");
+    let status: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(status["state"], "waiting");
+    assert!(status["opened_at"].is_null());
+    assert!(status["expires_at"].is_string());
+
+    // A non-consuming peek is not an open.
+    server
+        .client
+        .get(server.url(&format!("/secret/{}/meta", id)))
+        .send()
+        .await
+        .unwrap();
+    let status: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(status["state"], "waiting", "/meta must not count as opened");
+
+    // The reveal burns the secret but the receipt outlives it.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", id)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let status: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(status["state"], "opened");
+    assert!(status["opened_at"].is_string());
+
+    // The status token is not a secret id.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", token)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn delivery_status_unknown_is_404_and_malformed_is_400() {
+    let server = TestServer::start().await;
+    let resp = delivery_status(&server, &uuid::Uuid::new_v4().to_string()).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let resp = delivery_status(&server, "not-a-token").await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }

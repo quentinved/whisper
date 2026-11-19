@@ -1,12 +1,33 @@
-use crate::models::{shared_secret::PostgreSQLSharedSecret, ModelConversionError};
+use crate::models::{
+    delivery_receipt::PostgreSQLDeliveryReceipt, shared_secret::PostgreSQLSharedSecret,
+    ModelConversionError,
+};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use whisper_core::{
     contracts::repositories::shared_secret_repository::{
         SecretMetadata, SharedSecretRepository, SharedSecretRepositoryError,
     },
-    entities::shared_secret::SharedSecret,
-    values_object::shared_secret::secret_id::SecretId,
+    entities::{delivery_receipt::DeliveryReceipt, shared_secret::SharedSecret},
+    values_object::shared_secret::{secret_id::SecretId, status_token::StatusToken},
 };
+
+/// Logs every failure server-side (callers may swallow it, e.g. a best-effort
+/// receipt stamp) and hands back a generic message.
+fn db_error(
+    operation: &'static str,
+    message: &'static str,
+) -> impl Fn(sqlx::Error) -> SharedSecretRepositoryError {
+    move |err| {
+        tracing::error!("Database error during {}: {:?}", operation, err);
+        match err {
+            sqlx::Error::Database(_) => {
+                SharedSecretRepositoryError::DatabaseError(message.to_string())
+            }
+            _ => SharedSecretRepositoryError::ServiceError(err.to_string()),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct PostgreSQLSharedSecretsRepository {
@@ -242,6 +263,76 @@ impl SharedSecretRepository for PostgreSQLSharedSecretsRepository {
                 }
                 _ => SharedSecretRepositoryError::ServiceError(err.to_string()),
             })?;
+        Ok(result.rows_affected())
+    }
+
+    async fn save_receipt(
+        &self,
+        receipt: DeliveryReceipt,
+    ) -> Result<(), SharedSecretRepositoryError> {
+        let query = "
+            INSERT INTO secret_receipts (status_token, secret_id, expiration)
+            VALUES ($1, $2, $3)
+        ";
+        sqlx::query(query)
+            .bind(receipt.status_token().to_string())
+            .bind(receipt.secret_id().to_string())
+            .bind(receipt.expiration().value())
+            .execute(&self.pool)
+            .await
+            .map_err(db_error("save_receipt", "Failed to save receipt"))?;
+        Ok(())
+    }
+
+    async fn mark_receipt_opened(
+        &self,
+        secret_id: &SecretId,
+    ) -> Result<(), SharedSecretRepositoryError> {
+        let query = "
+            UPDATE secret_receipts SET opened_at = NOW()
+            WHERE secret_id = $1 AND opened_at IS NULL
+        ";
+        sqlx::query(query)
+            .bind(secret_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(db_error("mark_receipt_opened", "Failed to update receipt"))?;
+        Ok(())
+    }
+
+    async fn get_receipt(
+        &self,
+        status_token: &StatusToken,
+    ) -> Result<Option<DeliveryReceipt>, SharedSecretRepositoryError> {
+        let query = "
+            SELECT status_token, secret_id, expiration, opened_at
+            FROM secret_receipts
+            WHERE status_token = $1
+        ";
+        let row = sqlx::query_as::<_, PostgreSQLDeliveryReceipt>(query)
+            .bind(status_token.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db_error("get_receipt", "Failed to retrieve receipt"))?;
+        row.map(DeliveryReceipt::try_from)
+            .transpose()
+            .map_err(|err: ModelConversionError| {
+                SharedSecretRepositoryError::ServiceError(err.to_string())
+            })
+    }
+
+    async fn delete_receipts_expired_before(
+        &self,
+        cutoff: DateTime<Utc>,
+    ) -> Result<u64, SharedSecretRepositoryError> {
+        let result = sqlx::query("DELETE FROM secret_receipts WHERE expiration < $1")
+            .bind(cutoff)
+            .execute(&self.pool)
+            .await
+            .map_err(db_error(
+                "delete_receipts_expired_before",
+                "Failed to delete receipts",
+            ))?;
         Ok(result.rows_affected())
     }
 }

@@ -9,7 +9,8 @@ use axum::{
 use rust_embed::Embed;
 use secret_api::{
     create_ephemeral::create_ephemeral, create_secret::create_secret,
-    get_secret_by_id::get_secret_by_id, get_secret_metadata::get_secret_metadata,
+    get_delivery_status::get_delivery_status, get_secret_by_id::get_secret_by_id,
+    get_secret_metadata::get_secret_metadata,
 };
 use std::sync::Arc;
 use tower_http::set_header::SetResponseHeaderLayer;
@@ -84,6 +85,7 @@ pub fn app(app_state: Arc<AppState>) -> Router {
     let secret_router = Router::new()
         .route("/secret", post(create_secret))
         .route("/v1/ephemeral", post(create_ephemeral))
+        .route("/v1/status/:status_token", get(get_delivery_status))
         .route("/secret/:shared_secret_id", get(get_secret_by_id))
         .route("/secret/:shared_secret_id/meta", get(get_secret_metadata))
         .route("/", get(views::index::index))

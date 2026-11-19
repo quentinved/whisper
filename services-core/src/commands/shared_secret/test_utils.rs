@@ -3,10 +3,13 @@ pub mod mocks {
     use crate::contracts::repositories::shared_secret_repository::{
         SecretMetadata, SharedSecretRepository, SharedSecretRepositoryError,
     };
+    use crate::entities::delivery_receipt::DeliveryReceipt;
     use crate::entities::shared_secret::SharedSecret;
     use crate::services::secret_encryption::{SecretEncryption, SecretEncryptionError};
     use crate::values_object::shared_secret::secret_encrypted::SecretEncrypted;
     use crate::values_object::shared_secret::secret_id::SecretId;
+    use crate::values_object::shared_secret::status_token::StatusToken;
+    use chrono::{DateTime, Utc};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
@@ -36,6 +39,8 @@ pub mod mocks {
     pub struct MockSharedSecretRepository {
         secrets: Arc<Mutex<HashMap<SecretId, SharedSecret>>>,
         deleted: Arc<Mutex<Vec<SecretId>>>,
+        receipts: Arc<Mutex<HashMap<StatusToken, DeliveryReceipt>>>,
+        fail_receipts: bool,
     }
 
     impl Default for MockSharedSecretRepository {
@@ -49,6 +54,34 @@ pub mod mocks {
             Self {
                 secrets: Arc::new(Mutex::new(HashMap::new())),
                 deleted: Arc::new(Mutex::new(Vec::new())),
+                receipts: Arc::new(Mutex::new(HashMap::new())),
+                fail_receipts: false,
+            }
+        }
+
+        /// Every receipt operation fails, to prove reveals don't depend on it.
+        pub fn with_failing_receipts() -> Self {
+            Self {
+                fail_receipts: true,
+                ..Self::new()
+            }
+        }
+
+        pub fn receipt_for(&self, secret_id: &SecretId) -> Option<DeliveryReceipt> {
+            self.receipts
+                .lock()
+                .unwrap()
+                .values()
+                .find(|r| r.secret_id() == *secret_id)
+                .cloned()
+        }
+
+        fn check_receipts(&self) -> Result<(), SharedSecretRepositoryError> {
+            match self.fail_receipts {
+                true => Err(SharedSecretRepositoryError::DatabaseError(
+                    "receipts unavailable".to_string(),
+                )),
+                false => Ok(()),
             }
         }
 
@@ -123,6 +156,57 @@ pub mod mocks {
             let before = secrets.len();
             secrets.retain(|_, p| !p.expiration().is_expired());
             Ok((before - secrets.len()) as u64)
+        }
+
+        async fn save_receipt(
+            &self,
+            receipt: DeliveryReceipt,
+        ) -> Result<(), SharedSecretRepositoryError> {
+            self.check_receipts()?;
+            self.receipts
+                .lock()
+                .unwrap()
+                .insert(receipt.status_token(), receipt);
+            Ok(())
+        }
+
+        async fn mark_receipt_opened(
+            &self,
+            secret_id: &SecretId,
+        ) -> Result<(), SharedSecretRepositoryError> {
+            self.check_receipts()?;
+            let mut receipts = self.receipts.lock().unwrap();
+            if let Some(r) = receipts
+                .values_mut()
+                .find(|r| r.secret_id() == *secret_id && r.opened_at().is_none())
+            {
+                *r = DeliveryReceipt::new(
+                    r.status_token(),
+                    r.secret_id(),
+                    r.expiration(),
+                    Some(Utc::now()),
+                );
+            }
+            Ok(())
+        }
+
+        async fn get_receipt(
+            &self,
+            status_token: &StatusToken,
+        ) -> Result<Option<DeliveryReceipt>, SharedSecretRepositoryError> {
+            self.check_receipts()?;
+            Ok(self.receipts.lock().unwrap().get(status_token).cloned())
+        }
+
+        async fn delete_receipts_expired_before(
+            &self,
+            cutoff: DateTime<Utc>,
+        ) -> Result<u64, SharedSecretRepositoryError> {
+            self.check_receipts()?;
+            let mut receipts = self.receipts.lock().unwrap();
+            let before = receipts.len();
+            receipts.retain(|_, r| r.expiration().value() >= cutoff);
+            Ok((before - receipts.len()) as u64)
         }
     }
 }

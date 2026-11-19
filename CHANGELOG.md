@@ -1,4 +1,11 @@
 # Changelog
+## 19/11/2026 - https://github.com/quentinved/whisper/pull/24
+- Delivery status: the website now shows a "Sent secrets" list on the home and "Link Created" pages, with each secret you sent from this browser marked Waiting, Opened (with the time) or Expired (never opened). No account and no email: the list lives in the browser's localStorage and holds only a status key, never the secret, its link or its key
+- New `GET /v1/status/:token` endpoint (`{ state, expires_at, opened_at }`, `Cache-Control: no-store`). The status token can only read the status: it cannot open, decrypt or burn the secret, and the share link cannot read the status
+- `POST /v1/ephemeral` accepts an opt-in `track_delivery: true` and then also returns a `status_token`. Clients that don't send it (CLI, Discord, Raycast) get exactly the same response as before; Slack is unchanged
+- New `secret_receipts` table (migration `0004`) stores only the first time a tracked secret is revealed. It outlives a self-destruct secret and is deleted 7 days after the secret expires by the existing cleanup job. Peeking with `/secret/:id/meta` or opening the reveal page does not count as opened; a reveal never fails because the receipt could not be stamped
+- Privacy policy: discloses the first-opened timestamp, its 7-day retention, and what the browser's localStorage now holds
+- Server v1.5.0
 ## 25/09/2026 - https://github.com/quentinved/whisper/pull/23
 - Fix the CLI release: npm 12 dropped Node 20, so `npm install -g npm@latest` failed on the release runners and v1.1.0 never reached npm. The release now runs on Node 24 LTS and pins `npm@11` (Trusted Publishing needs npm >= 11.5.1)
 - Fix an `unused_mut` warning in `run` that only shows up on Windows. CI now runs clippy on the CLI on Windows too, so code that only compiles off Unix is checked
