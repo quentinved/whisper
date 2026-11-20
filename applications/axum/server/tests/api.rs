@@ -403,6 +403,32 @@ async fn create_secret_too_large() {
 }
 
 #[tokio::test]
+async fn footer_links_the_encryption_badge_and_the_repo_to_github() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    // The badge shows where encryption happens, not the CLI docs.
+    assert!(
+        body.contains(
+            r#"href="https://github.com/quentinved/Whisper/tree/main/adapters/aes-gcm-crypto""#
+        ),
+        "the AES-256-GCM badge must open the encryption crate"
+    );
+    assert!(
+        body.contains(r#"href="https://github.com/quentinved/Whisper""#),
+        "the footer must link to the repo"
+    );
+}
+
+#[tokio::test]
 async fn homepage_has_absolute_seo_tags() {
     let server = TestServer::start().await;
     let body = server
