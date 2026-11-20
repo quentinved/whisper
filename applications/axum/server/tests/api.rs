@@ -14,6 +14,9 @@ use whisper_server::app_state::AppState;
 struct TestServer {
     base_url: String,
     client: reqwest::Client,
+    /// Direct database access, for states the API refuses to create (e.g. a
+    /// receipt whose secret already expired).
+    pool: PgPool,
     _container: testcontainers::ContainerAsync<Postgres>,
     _aes_key_file: NamedTempFile,
 }
@@ -44,7 +47,7 @@ impl TestServer {
         // Create AppState
         let analytics: Arc<dyn AnalyticsTracker> = Arc::new(CompositeTracker::new(vec![]));
         let app_state = Arc::new(AppState::new(
-            pool,
+            pool.clone(),
             secret_key,
             "http://localhost".to_string(),
             None,
@@ -68,6 +71,7 @@ impl TestServer {
         TestServer {
             base_url: format!("http://127.0.0.1:{}", port),
             client,
+            pool,
             _container: container,
             _aes_key_file: key_file,
         }
@@ -628,4 +632,94 @@ async fn delivery_status_unknown_is_404_and_malformed_is_400() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     let resp = delivery_status(&server, "not-a-token").await;
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn delivery_status_keeps_the_first_open_time_of_a_reusable_secret() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+            "self_destruct": false,
+            "track_delivery": true,
+        }),
+    )
+    .await;
+    let id = body["id"].as_str().unwrap().to_string();
+    let token = body["status_token"].as_str().unwrap().to_string();
+    let reveal = || {
+        server
+            .client
+            .get(server.url(&format!("/secret/{}", id)))
+            .send()
+    };
+
+    assert_eq!(reveal().await.unwrap().status(), StatusCode::OK);
+    let first: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(first["state"], "opened");
+
+    // Past the 1-second resolution of the timestamps, so a moved time shows.
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    assert_eq!(reveal().await.unwrap().status(), StatusCode::OK);
+    let second: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(
+        second["opened_at"], first["opened_at"],
+        "a second reveal must not move the first-open time"
+    );
+}
+
+/// Plants a receipt whose secret expired `days_ago` days ago — a state the
+/// API refuses to create.
+async fn insert_expired_receipt(server: &TestServer, days_ago: i32) -> String {
+    let token = uuid::Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO secret_receipts (status_token, secret_id, expiration)
+         VALUES ($1, $2, NOW() - make_interval(days => $3))",
+    )
+    .bind(&token)
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(days_ago)
+    .execute(&server.pool)
+    .await
+    .unwrap();
+    token
+}
+
+#[tokio::test]
+async fn expired_receipts_report_expired_then_are_purged_after_retention() {
+    use whisper_core::commands::shared_secret::delete_expired_secrets::DeleteExpiredSecrets;
+    use whisper_postgresql::shared_secrets_repository::PostgreSQLSharedSecretsRepository;
+
+    let server = TestServer::start().await;
+    let recent = insert_expired_receipt(&server, 1).await;
+    let stale = insert_expired_receipt(&server, 8).await;
+
+    for token in [&recent, &stale] {
+        let resp = delivery_status(&server, token).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let status: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(status["state"], "expired");
+        assert!(status["opened_at"].is_null());
+    }
+
+    // The every-minute cleanup job, run once against the real database.
+    let repository = PostgreSQLSharedSecretsRepository::new(server.pool.clone());
+    DeleteExpiredSecrets::new()
+        .handle(&repository)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        delivery_status(&server, &stale).await.status(),
+        StatusCode::NOT_FOUND,
+        "a receipt 8 days past expiry must be purged"
+    );
+    assert_eq!(
+        delivery_status(&server, &recent).await.status(),
+        StatusCode::OK,
+        "a receipt within the 7-day window must be kept"
+    );
 }
