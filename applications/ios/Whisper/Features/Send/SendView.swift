@@ -1,4 +1,5 @@
 import SwiftUI
+import WhisperCore
 
 struct SendView: View {
     @Environment(AppSettings.self) private var settings
@@ -7,7 +8,7 @@ struct SendView: View {
     @FocusState private var editorFocused: Bool
 
     var body: some View {
-        ScrollView {
+        Screen {
             VStack(spacing: Theme.Spacing.loose) {
                 switch model.phase {
                 case .created(let link):
@@ -18,20 +19,17 @@ struct SendView: View {
                         sentSecret: model.lastSent,
                         onCreateAnother: { withAnimation(.spring(response: 0.4)) { model.reset() } }
                     )
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.94).combined(with: .opacity),
-                        removal: .opacity
-                    ))
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.94).combined(with: .opacity),
+                            removal: .opacity
+                        ))
                 case .composing, .sealing:
                     composer
                         .transition(.opacity)
                 }
             }
-            .padding(Theme.Spacing.normal)
-            .padding(.bottom, Theme.Spacing.section)
         }
-        .scrollDismissesKeyboard(.interactively)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.phase)
     }
 
@@ -41,9 +39,13 @@ struct SendView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
             header
 
-            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                FieldLabel(text: "Secret")
-                secretEditor
+            VStack(alignment: .leading, spacing: Theme.Spacing.snug) {
+                ModeSwitch(
+                    options: SendViewModel.Mode.allCases, selection: $model.mode, title: \.rawValue)
+                switch model.mode {
+                case .freeForm: secretEditor
+                case .multipleValues: MultipleValuesEditor(model: model)
+                }
                 if model.isOverLimit {
                     Text("\(model.byteCount.formatted()) bytes — the limit is 64 KB")
                         .font(.system(size: 12))
@@ -59,34 +61,23 @@ struct SendView: View {
 
             createButton
 
-            Text("Encrypted on this iPhone before it is sent. The server stores ciphertext it has no key for.")
+            Label("End-to-end encrypted on your iPhone", systemImage: "lock.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.textMuted)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.normal)
+                .frame(maxWidth: .infinity)
         }
     }
 
     private var header: some View {
         VStack(spacing: Theme.Spacing.tight) {
-            // The website's mark, drawn as a template so it inverts in dark
-            // mode exactly as `[data-theme="dark"] .logo-image { filter:
-            // invert(1) }` does on the web. The glyph is a knockout, so the
-            // glass behind it shows through.
-            GlassBadge {
-                Image("Logo")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 30, height: 30)
-                    .foregroundStyle(Theme.textPrimary)
+            GlassBadge(size: 76, cornerRadius: 24) {
+                BrandMark(size: 40)
             }
             .accessibilityLabel("Whisper")
 
             Text("Whisper")
-                .font(.system(size: 30, weight: .bold))
-                .tracking(-0.5)
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.6)
                 .foregroundStyle(Theme.textPrimary)
 
             Text("Built to Disappear.")
@@ -118,7 +109,7 @@ struct SendView: View {
                 .focused($editorFocused)
                 .accessibilityIdentifier("secret-editor")
         }
-        .background(Theme.input)
+        .background(Theme.input.opacity(0.85))
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
@@ -129,71 +120,97 @@ struct SendView: View {
                     lineWidth: editorFocused || model.isOverLimit ? 2 : 1
                 )
         )
+        .shadow(color: Theme.violet.opacity(editorFocused ? 0.25 : 0), radius: 12)
         .animation(.easeOut(duration: 0.15), value: editorFocused)
     }
 
     private var optionsCard: some View {
         VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Expires after")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("Deleted automatically, opened or not")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.textMuted)
-                }
+                optionLabel("Expires after", detail: "Deleted automatically, opened or not")
                 Spacer()
                 Picker("Expires after", selection: $model.expiration) {
-                    ForEach(Expiration.allCases) { option in
+                    ForEach(SecretExpiration.presets, id: \.self) { option in
                         Text(option.label).tag(option)
                     }
+                    Text("Custom…").tag(SecretExpiration.custom(model.customDate))
                 }
                 .pickerStyle(.menu)
-                .tint(Theme.textPrimary)
+                .tint(Theme.accent)
+                .accessibilityIdentifier("expiration-picker")
             }
             .padding(Theme.Spacing.normal)
+
+            if model.isCustomExpiration {
+                DatePicker(
+                    "Delete on",
+                    selection: $model.customDate,
+                    in: Date().addingTimeInterval(60)...Date().addingTimeInterval(SecretExpiration.maximum),
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .font(.system(size: 16))
+                .foregroundStyle(Theme.textPrimary)
+                .tint(Theme.accent)
+                .padding(.horizontal, Theme.Spacing.normal)
+                .padding(.bottom, Theme.Spacing.normal)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             Divider().overlay(Theme.border)
 
             Toggle(isOn: $model.selfDestruct) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Burn after reading")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("Destroyed the moment it is opened once")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.textMuted)
-                }
+                optionLabel("Burn after reading", detail: "Destroyed the moment it's opened")
             }
             .tint(Theme.accent)
             .padding(Theme.Spacing.normal)
         }
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .glassPanel()
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.isCustomExpiration)
+    }
+
+    private func optionLabel(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 16))
+                .foregroundStyle(Theme.textPrimary)
+            Text(detail)
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.textMuted)
+        }
     }
 
     private var createButton: some View {
         Button {
-            editorFocused = false
+            dismissKeyboard()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             Task { await model.create(using: settings, sent: sent) }
         } label: {
             if model.phase == .sealing {
                 HStack(spacing: Theme.Spacing.tight) {
-                    ProgressView().tint(Theme.textInverse)
+                    ProgressView().tint(Theme.onBrand)
                     Text("Encrypting…")
                 }
             } else {
-                Text("Create secret link")
+                Label("Create secret link", systemImage: "link")
             }
         }
         .buttonStyle(PrimaryButtonStyle())
         .disabled(!model.canCreate)
         .accessibilityIdentifier("create-button")
+    }
+}
+
+/// The app icon's ribbon, in its violet-to-mint gradient with a soft glow.
+struct BrandMark: View {
+    var size: CGFloat
+
+    var body: some View {
+        Image("Mark")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(Theme.markGradient)
+            .shadow(color: Theme.violet.opacity(0.35), radius: size / 6)
     }
 }

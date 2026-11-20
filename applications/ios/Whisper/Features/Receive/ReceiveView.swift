@@ -6,7 +6,7 @@ struct ReceiveView: View {
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        ScrollView {
+        Screen {
             VStack(spacing: Theme.Spacing.loose) {
                 switch model.phase {
                 case .idle, .inspecting:
@@ -39,11 +39,7 @@ struct ReceiveView: View {
                     Banner(kind: .error, message: message)
                 }
             }
-            .padding(Theme.Spacing.normal)
-            .padding(.bottom, Theme.Spacing.section)
         }
-        .scrollDismissesKeyboard(.interactively)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.phase)
         .animation(.easeOut(duration: 0.2), value: model.errorMessage)
     }
@@ -51,18 +47,19 @@ struct ReceiveView: View {
     private var inputSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
             VStack(spacing: Theme.Spacing.tight) {
-                GlassBadge {
-                    Image(systemName: "envelope.open")
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
+                GlassBadge(size: 76, cornerRadius: 24) {
+                    Image(systemName: "envelope.open.fill")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(Theme.markGradient)
+                        .shadow(color: Theme.violet.opacity(0.3), radius: 6)
                 }
 
                 Text("Open a secret")
-                    .font(.system(size: 26, weight: .bold))
-                    .tracking(-0.4)
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(-0.5)
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("Paste a Whisper link someone sent you")
+                Text("Paste the link someone sent you")
                     .font(.system(size: 15))
                     .foregroundStyle(Theme.textMuted)
             }
@@ -70,8 +67,7 @@ struct ReceiveView: View {
             .padding(.top, Theme.Spacing.tight)
 
             VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                FieldLabel(text: "Whisper link")
-                TextField("https://…/get_secret?…#k=…", text: $model.pasted, axis: .vertical)
+                TextField("Paste the link here", text: $model.pasted, axis: .vertical)
                     .font(.system(size: 14, design: .monospaced))
                     .foregroundStyle(Theme.textPrimary)
                     .textInputAutocapitalization(.never)
@@ -80,7 +76,7 @@ struct ReceiveView: View {
                     .lineLimit(2...5)
                     .focused($fieldFocused)
                     .padding(Theme.Spacing.snug)
-                    .background(Theme.input)
+                    .background(Theme.input.opacity(0.85))
                     .clipShape(
                         RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                     )
@@ -91,18 +87,19 @@ struct ReceiveView: View {
                                 lineWidth: fieldFocused ? 2 : 1
                             )
                     )
+                    .shadow(color: Theme.violet.opacity(fieldFocused ? 0.25 : 0), radius: 12)
                     .animation(.easeOut(duration: 0.15), value: fieldFocused)
                     .accessibilityIdentifier("link-field")
             }
 
             VStack(spacing: Theme.Spacing.snug) {
                 Button {
-                    fieldFocused = false
+                    dismissKeyboard()
                     Task { await model.inspect(model.pasted, using: settings) }
                 } label: {
                     if model.phase == .inspecting {
                         HStack(spacing: Theme.Spacing.tight) {
-                            ProgressView().tint(Theme.textInverse)
+                            ProgressView().tint(Theme.onBrand)
                             Text("Checking…")
                         }
                     } else {
@@ -116,7 +113,7 @@ struct ReceiveView: View {
                 Button {
                     guard let text = Clipboard.probableLink else { return }
                     model.pasted = text
-                    fieldFocused = false
+                    dismissKeyboard()
                     Task { await model.inspect(text, using: settings) }
                 } label: {
                     Label("Paste from clipboard", systemImage: "doc.on.clipboard")
@@ -124,7 +121,7 @@ struct ReceiveView: View {
                 .buttonStyle(SecondaryButtonStyle())
             }
 
-            Text("Decryption happens on this iPhone using the key in the link. The server never receives it.")
+            Label("Decrypted on your iPhone", systemImage: "lock.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.textMuted)
                 .multilineTextAlignment(.center)

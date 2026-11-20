@@ -1,4 +1,5 @@
 import Foundation
+import WhisperCore
 
 @MainActor
 @Observable
@@ -9,28 +10,73 @@ final class SendViewModel {
         case created(WhisperLink)
     }
 
+    /// The web form's two modes.
+    enum Mode: String, CaseIterable, Identifiable {
+        case freeForm = "Free Form"
+        case multipleValues = "Multiple Values"
+        var id: Self { self }
+    }
+
+    struct DraftRow: Identifiable {
+        let id = UUID()
+        var key = ""
+        var value = ""
+    }
+
+    struct DraftSection: Identifiable {
+        let id = UUID()
+        var name = ""
+        var rows = [DraftRow()]
+    }
+
+    var mode: Mode = .freeForm
     var secret = ""
-    var expiration: Expiration = .oneHour
+    var rows = [DraftRow()]
+    var sections: [DraftSection] = []
+
+    var expiration: SecretExpiration = .oneHour
+    /// Backs the "Custom…" option; kept in step with `expiration` while it's chosen.
+    var customDate = Date().addingTimeInterval(24 * 60 * 60) {
+        didSet { if isCustomExpiration { expiration = .custom(customDate) } }
+    }
     var selfDestruct = true
     private(set) var phase: Phase = .composing
-    /// The entry added to the Sent list for the link on screen, if the server
-    /// tracks delivery.
-    private(set) var lastSent: SentSecret?
     var errorMessage: String?
+    /// The Sent-list entry for the link on screen, when the server tracks
+    /// delivery (v1.5.0+).
+    private(set) var lastSent: SentSecret?
 
-    /// Matches `MAX_SECRET_SIZE` in
-    /// `services-core/src/commands/shared_secret/create_secret.rs`. Measured in
-    /// bytes, not characters, because that is what the server counts — an
-    /// emoji-heavy secret hits the ceiling four times faster than its length
-    /// suggests.
-    static let maxBytes = 64 * 1024
+    private let dependencies: Dependencies
 
-    var byteCount: Int { secret.utf8.count }
-    var isOverLimit: Bool { byteCount > Self.maxBytes }
+    init(dependencies: Dependencies = .live) {
+        self.dependencies = dependencies
+    }
+
+    var isCustomExpiration: Bool {
+        if case .custom = expiration { return true }
+        return false
+    }
+
+    var byteCount: Int {
+        switch mode {
+        case .freeForm: return secret.utf8.count
+        case .multipleValues: return ((try? structured())?.json.utf8.count) ?? 0
+        }
+    }
+
+    var isOverLimit: Bool { byteCount > CreateClientEncryptedSecret.maxBytes }
+
     var canCreate: Bool {
-        !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !isOverLimit
-            && phase != .sealing
+        let hasContent: Bool
+        switch mode {
+        case .freeForm:
+            hasContent = !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .multipleValues:
+            hasContent = (rows + sections.flatMap(\.rows)).contains {
+                !$0.key.trimmingCharacters(in: .whitespaces).isEmpty && !$0.value.isEmpty
+            }
+        }
+        return hasContent && !isOverLimit && phase != .sealing
     }
 
     func create(using settings: AppSettings, sent: SentStore) async {
@@ -39,26 +85,24 @@ final class SendViewModel {
         phase = .sealing
 
         do {
-            // Sealing happens before anything touches the network, so the
-            // plaintext never leaves this process and the key never leaves the
-            // device.
-            let sealed = try EphemeralCrypto.seal(secret)
-            let expiresAt = expiration.date()
-            let created = try await settings.client.createEphemeral(
-                payloadB64URL: sealed.payloadB64URL,
-                expiration: expiresAt,
+            let now = Date()
+            let created = try await CreateClientEncryptedSecret(
+                plaintext: try plaintext(),
+                expiration: expiration,
                 selfDestruct: selfDestruct
+            ).handle(
+                encryption: dependencies.encryption,
+                repository: dependencies.repository(settings.server),
+                now: now
             )
-
-            let link = WhisperLink(id: created.id, key: sealed.keyB64URL, server: settings.server)
+            clearDrafts()
             lastSent = created.statusToken.map {
                 SentSecret(
-                    token: $0, server: settings.server, createdAt: .now,
-                    expiresAt: expiresAt, selfDestruct: selfDestruct)
+                    token: $0, server: settings.server, createdAt: now,
+                    expiresAt: expiration.date(from: now), selfDestruct: selfDestruct)
             }
             if let lastSent { sent.add(lastSent) }
-            secret = ""
-            phase = .created(link)
+            phase = .created(created.link)
         } catch {
             errorMessage = error.localizedDescription
             phase = .composing
@@ -66,9 +110,46 @@ final class SendViewModel {
     }
 
     func reset() {
-        secret = ""
-        lastSent = nil
+        clearDrafts()
         errorMessage = nil
+        lastSent = nil
         phase = .composing
+    }
+
+    // MARK: Multiple values
+
+    func removeRow(_ id: UUID) {
+        rows.removeAll { $0.id == id }
+        if rows.isEmpty { rows = [DraftRow()] }
+    }
+
+    func removeSection(_ id: UUID) {
+        sections.removeAll { $0.id == id }
+    }
+
+    // MARK: -
+
+    private func plaintext() throws -> String {
+        switch mode {
+        case .freeForm: return secret
+        case .multipleValues: return try structured().json
+        }
+    }
+
+    private func structured() throws -> StructuredSecret {
+        func convert(_ rows: [DraftRow]) -> [StructuredSecret.Row] {
+            rows.map { StructuredSecret.Row(key: $0.key, value: $0.value) }
+        }
+        return try StructuredSecret(
+            rows: convert(rows),
+            sections: sections.map { StructuredSecret.Section(name: $0.name, rows: convert($0.rows)) }
+        )
+    }
+
+    /// Drafts hold secret values; nothing of them should outlive the link.
+    private func clearDrafts() {
+        secret = ""
+        rows = [DraftRow()]
+        sections = []
     }
 }

@@ -81,6 +81,19 @@ async fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// Universal Links: iOS fetches this to decide which share links open in the
+/// Whisper app instead of Safari. Only links carrying a `#k=` key match — the
+/// app needs the key, and server-encrypted links (Slack) have none, so those
+/// keep opening on the web.
+const APPLE_APP_SITE_ASSOCIATION: &str = r##"{"applinks":{"details":[{"appIDs":["7WBNUC3KR9.com.quentinvedrenne.whisper"],"components":[{"/":"/get_secret","#":"k=*"},{"/":"/","?":{"shared_secret_id":"*"},"#":"k=*"}]}]}}"##;
+
+async fn apple_app_site_association() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/json")],
+        APPLE_APP_SITE_ASSOCIATION,
+    )
+}
+
 pub fn app(app_state: Arc<AppState>) -> Router {
     let secret_router = Router::new()
         .route("/secret", post(create_secret))
@@ -105,6 +118,10 @@ pub fn app(app_state: Arc<AppState>) -> Router {
         .route("/assets/*path", get(serve_asset))
         .route("/robots.txt", get(robots_txt))
         .route("/sitemap.xml", get(sitemap_xml))
+        .route(
+            "/.well-known/apple-app-site-association",
+            get(apple_app_site_association),
+        )
         .with_state(app_state.clone());
 
     let slack_router = Router::new()

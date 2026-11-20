@@ -6,15 +6,15 @@ import Foundation
 /// Foundation only ships standard base64, so the two alphabets are translated
 /// by hand here. This must stay byte-compatible with the Rust `base64-url`
 /// crate and the browser's `base64url` helpers.
-enum Base64URL {
-    static func encode(_ data: Data) -> String {
+public enum Base64URL {
+    public static func encode(_ data: Data) -> String {
         data.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
 
-    static func decode(_ string: String) -> Data? {
+    public static func decode(_ string: String) -> Data? {
         var standard =
             string
             .replacingOccurrences(of: "-", with: "+")

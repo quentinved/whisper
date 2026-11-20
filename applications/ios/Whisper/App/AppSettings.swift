@@ -58,6 +58,4 @@ final class AppSettings {
     var serverIsValid: Bool {
         URL(string: serverURLString.trimmingCharacters(in: .whitespaces))?.host != nil
     }
-
-    var client: WhisperClient { WhisperClient(server: server) }
 }

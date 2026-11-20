@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA00000000000000000054 /* WhisperCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000000000000000051 /* WhisperCore */; };
+		AA00000000000000000055 /* WhisperCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000000000000000052 /* WhisperCrypto */; };
+		AA00000000000000000056 /* WhisperHTTP in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000000000000000053 /* WhisperHTTP */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AA00000000000000000037 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -31,6 +37,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA00000000000000000054 /* WhisperCore in Frameworks */,
+				AA00000000000000000055 /* WhisperCrypto in Frameworks */,
+				AA00000000000000000056 /* WhisperHTTP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,6 +90,11 @@
 				AA00000000000000000002 /* Whisper */,
 			);
 			name = Whisper;
+			packageProductDependencies = (
+				AA00000000000000000051 /* WhisperCore */,
+				AA00000000000000000052 /* WhisperCrypto */,
+				AA00000000000000000053 /* WhisperHTTP */,
+			);
 			productName = Whisper;
 			productReference = AA00000000000000000001 /* Whisper.app */;
 			productType = "com.apple.product-type.application";
@@ -134,6 +148,9 @@
 			);
 			mainGroup = AA00000000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA00000000000000000050 /* XCLocalSwiftPackageReference "WhisperKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA00000000000000000005 /* Products */;
 			projectDirPath = "";
@@ -253,6 +270,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/Whisper.entitlements;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Whisper;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -282,6 +300,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/Whisper.entitlements;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Whisper;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -366,6 +385,27 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+/* Begin XCLocalSwiftPackageReference section */
+		AA00000000000000000050 /* XCLocalSwiftPackageReference "WhisperKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WhisperKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA00000000000000000051 /* WhisperCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WhisperCore;
+		};
+		AA00000000000000000052 /* WhisperCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WhisperCrypto;
+		};
+		AA00000000000000000053 /* WhisperHTTP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WhisperHTTP;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA00000000000000000010 /* Project object */;
 }

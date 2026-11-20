@@ -68,12 +68,102 @@ final class WhisperFlowTests: XCTestCase {
 
         reveal.tap()
 
+        let toggle = app.buttons["reveal-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20), "the secret was never decrypted")
+        XCTAssertFalse(
+            app.staticTexts["revealed-secret"].exists,
+            "the secret must stay hidden until the user asks to see it")
+        capture("04-hidden")
+
+        toggle.tap()
         let revealed = app.staticTexts["revealed-secret"]
-        let appeared = revealed.waitForExistence(timeout: 20)
-        capture("04-revealed")
-        XCTAssertTrue(appeared, "the secret was never revealed")
+        XCTAssertTrue(revealed.waitForExistence(timeout: 5), "tapping Show did not reveal it")
         XCTAssertEqual(revealed.label, secret, "the decrypted secret does not match")
-        capture("04-revealed")
+        capture("05-revealed")
+    }
+
+    /// The web's "Multiple Values" mode, both ways: build key/value pairs here,
+    /// and read them back as separate, individually revealed fields.
+    func testMultipleValuesRoundTrip() throws {
+        let password = "s3cr3t-\(Int.random(in: 1000...9999))"
+
+        app.buttons["Multiple Values"].tap()
+        let key = app.textFields["kv-0-key"]
+        XCTAssertTrue(key.waitForExistence(timeout: 10), "the key/value builder never appeared")
+        key.tap()
+        key.typeText("DB_PASSWORD")
+        let value = app.textFields["kv-0-value"]
+        value.tap()
+        value.typeText(password)
+        capture("08-multiple-values")
+
+        app.buttons["create-button"].tap()
+        let linkLabel = app.staticTexts["share-link"]
+        XCTAssertTrue(linkLabel.waitForExistence(timeout: 20), "no link was produced")
+
+        openLink(linkLabel.label)
+        let reveal = app.buttons["reveal-button"]
+        XCTAssertTrue(reveal.waitForExistence(timeout: 20))
+        reveal.tap()
+
+        let toggle = app.buttons["field-toggle-DB_PASSWORD"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20), "the secret wasn't shown as fields")
+        XCTAssertFalse(app.staticTexts["field-value-DB_PASSWORD"].exists, "fields must start hidden")
+        toggle.tap()
+        let shown = app.staticTexts["field-value-DB_PASSWORD"]
+        XCTAssertTrue(shown.waitForExistence(timeout: 5))
+        XCTAssertEqual(shown.label, password)
+        capture("09-fields")
+    }
+
+    /// The sender's side: a link starts out "Waiting", and once someone reveals
+    /// it the Sent tab says "Opened" — without any account. Needs a server with
+    /// delivery status (v1.5.0+).
+    func testSentTabShowsWhenTheSecretWasOpened() throws {
+        let secret = "delivered-\(Int.random(in: 1000...9999))"
+
+        let editor = app.textViews["secret-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText(secret)
+        app.buttons["create-button"].tap()
+
+        let linkLabel = app.staticTexts["share-link"]
+        XCTAssertTrue(linkLabel.waitForExistence(timeout: 20))
+        let link = linkLabel.label
+
+        let status = app.descendants(matching: .any)
+            .matching(identifier: "delivery-status").firstMatch
+        waitForLabel(of: status, toContain: "Waiting")
+        capture("10-delivery-waiting")
+
+        openLink(link)
+        let reveal = app.buttons["reveal-button"]
+        XCTAssertTrue(reveal.waitForExistence(timeout: 20), "confirmation never appeared")
+        reveal.tap()
+        XCTAssertTrue(app.buttons["reveal-toggle"].waitForExistence(timeout: 20), "the secret was never opened")
+        app.buttons["Done"].tap()
+
+        app.buttons["Sent"].tap()
+        let newest = app.descendants(matching: .any).matching(identifier: "sent-row").firstMatch
+        waitForLabel(of: newest, toContain: "Opened")
+        capture("11-sent-opened")
+    }
+
+    /// Tapping empty space must put the keyboard away — the composer is a
+    /// multi-line editor, so Return only adds a line.
+    func testTappingOutsideDismissesTheKeyboard() throws {
+        let editor = app.textViews["secret-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10), "composer never appeared")
+        editor.tap()
+        editor.typeText("typing…")
+        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 5), "no keyboard to dismiss")
+
+        app.staticTexts["Built to Disappear."].tap()
+
+        let gone = NSPredicate(format: "exists == false")
+        expectation(for: gone, evaluatedWith: app.keyboards.element)
+        waitForExpectations(timeout: 5)
     }
 
     /// A burnt secret must not come back a second time. This is the guarantee
@@ -96,8 +186,11 @@ final class WhisperFlowTests: XCTestCase {
         XCTAssertTrue(firstReveal.waitForExistence(timeout: 20), "confirmation never appeared")
         firstReveal.tap()
 
+        let toggle = app.buttons["reveal-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20), "first read failed")
+        toggle.tap()
         let revealed = app.staticTexts["revealed-secret"]
-        XCTAssertTrue(revealed.waitForExistence(timeout: 20), "first read failed")
+        XCTAssertTrue(revealed.waitForExistence(timeout: 5))
         XCTAssertEqual(revealed.label, secret)
 
         app.buttons["Done"].tap()
@@ -111,43 +204,10 @@ final class WhisperFlowTests: XCTestCase {
             secondReveal.tap()
         }
         XCTAssertFalse(
-            app.staticTexts["revealed-secret"].waitForExistence(timeout: 10),
+            app.buttons["reveal-toggle"].waitForExistence(timeout: 10),
             "a burn-after-reading secret was served twice"
         )
-        capture("05-burned")
-    }
-
-    /// The sender's side: a link starts out "Waiting", and once someone reveals
-    /// it the Sent tab says "Opened" — without any account.
-    func testSentTabShowsWhenTheSecretWasOpened() throws {
-        let secret = "delivered-\(Int.random(in: 1000...9999))"
-
-        let editor = app.textViews["secret-editor"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 10))
-        editor.tap()
-        editor.typeText(secret)
-        app.buttons["create-button"].tap()
-
-        let linkLabel = app.staticTexts["share-link"]
-        XCTAssertTrue(linkLabel.waitForExistence(timeout: 20))
-        let link = linkLabel.label
-
-        let status = app.descendants(matching: .any)
-            .matching(identifier: "delivery-status").firstMatch
-        waitForLabel(of: status, toContain: "Waiting")
-        capture("07-delivery-waiting")
-
-        openLink(link)
-        let reveal = app.buttons["reveal-button"]
-        XCTAssertTrue(reveal.waitForExistence(timeout: 20), "confirmation never appeared")
-        reveal.tap()
-        XCTAssertTrue(app.staticTexts["revealed-secret"].waitForExistence(timeout: 20))
-        app.buttons["Done"].tap()
-
-        app.buttons["Sent"].tap()
-        let newest = app.descendants(matching: .any).matching(identifier: "sent-row").firstMatch
-        waitForLabel(of: newest, toContain: "Opened")
-        capture("08-sent-opened")
+        capture("06-burned")
     }
 
     func testSettingsShowsTheConfiguredServer() throws {
@@ -155,19 +215,10 @@ final class WhisperFlowTests: XCTestCase {
         let field = app.textFields["server-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10), "settings never appeared")
         XCTAssertEqual(field.value as? String, server, "the app is pointed at the wrong server")
-        capture("06-settings")
+        capture("07-settings")
     }
 
     // MARK: - Helpers
-
-    /// Statuses load asynchronously ("Checking" first), so poll the label.
-    private func waitForLabel(of element: XCUIElement, toContain text: String) {
-        let predicate = NSPredicate(format: "label CONTAINS %@", text)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [expectation], timeout: 20), .completed,
-            "expected “\(text)”, got “\(element.exists ? element.label : "nothing")”")
-    }
 
     /// Refuses to run against an unreachable server instead of silently
     /// exercising whatever the app defaults to.
@@ -201,6 +252,15 @@ final class WhisperFlowTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "settings never appeared")
         XCTAssertEqual(field.value as? String, server, "the app is pointed at the wrong server")
         app.buttons["Send"].tap()
+    }
+
+    /// Statuses load asynchronously ("Checking" first), so poll the label.
+    private func waitForLabel(of element: XCUIElement, toContain text: String) {
+        let predicate = NSPredicate(format: "label CONTAINS %@", text)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 20), .completed,
+            "expected “\(text)”, got “\(element.exists ? element.label : "nothing")”")
     }
 
     private func openLink(_ link: String) {

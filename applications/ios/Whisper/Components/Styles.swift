@@ -1,23 +1,25 @@
 import SwiftUI
 
-/// The filled, high-contrast action. There is at most one per screen.
+/// The filled brand action. There is at most one per screen.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Theme.textInverse)
+            .foregroundStyle(Theme.onBrand)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(Theme.accent.opacity(isEnabled ? 1 : 0.3))
+            .background(Theme.brandGradient)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+            .shadow(color: Theme.violet.opacity(isEnabled ? 0.25 : 0), radius: 10, y: 4)
+            .opacity(isEnabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-/// Outlined counterpart for secondary actions sitting next to a primary one.
+/// Glass counterpart for secondary actions sitting next to a primary one.
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -25,36 +27,25 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(Theme.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassPanel(cornerRadius: Theme.Radius.medium)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-/// The raised panel the web UI draws as `.card`.
-struct CardBackground: ViewModifier {
-    var padding: CGFloat = Theme.Spacing.normal
-
-    func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
-    }
-}
-
 extension View {
+    /// Frosted glass over the aurora backdrop, with a hairline edge.
+    func glassPanel(cornerRadius: CGFloat = Theme.Radius.large) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return
+            self
+            .background(.ultraThinMaterial, in: shape)
+            .overlay(shape.stroke(Theme.border, lineWidth: 1))
+    }
+
+    /// The raised panel the web UI draws as `.card`.
     func cardBackground(padding: CGFloat = Theme.Spacing.normal) -> some View {
-        modifier(CardBackground(padding: padding))
+        self.padding(padding).glassPanel()
     }
 }
 
@@ -70,8 +61,24 @@ struct FieldLabel: View {
     }
 }
 
-/// Inline status message. `.warning` is used for the one-time-read notice and
-/// `.error` for failures; nothing else in the app is coloured.
+/// A compact fact about a secret: "1 hour", "Opens once".
+struct Chip: View {
+    let text: String
+    let systemImage: String
+    var tint: Color = Theme.textSecondary
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(tint.opacity(0.25), lineWidth: 1))
+    }
+}
+
+/// Inline status message: `.warning` for one-time reads, `.error` for failures.
 struct Banner: View {
     enum Kind {
         case warning
@@ -121,3 +128,34 @@ struct Banner: View {
 }
 
 extension Banner.Kind: Equatable {}
+
+/// A scrolling screen over the aurora backdrop. Dragging or the keyboard's
+/// Done button puts the keyboard away (taps outside are handled app-wide by
+/// `KeyboardDismissal`) — a multi-line editor's Return key only adds a line.
+struct Screen<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ScrollView {
+            content
+                .padding(Theme.Spacing.normal)
+                .padding(.bottom, Theme.Spacing.section)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(AuroraBackground())
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done", action: dismissKeyboard)
+                    .fontWeight(.semibold)
+                    .accessibilityIdentifier("keyboard-done")
+            }
+        }
+    }
+}
+
+@MainActor
+func dismissKeyboard() {
+    UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+}

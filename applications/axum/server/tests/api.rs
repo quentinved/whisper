@@ -121,6 +121,32 @@ async fn health_check() {
 }
 
 #[tokio::test]
+async fn apple_app_site_association_routes_key_links_to_the_ios_app() {
+    let server = TestServer::start().await;
+
+    let resp = server
+        .client
+        .get(server.url("/.well-known/apple-app-site-association"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()["content-type"], "application/json");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let details = &body["applinks"]["details"][0];
+    assert_eq!(
+        details["appIDs"][0],
+        "7WBNUC3KR9.com.quentinvedrenne.whisper"
+    );
+    // Only links carrying a key open in the app; Slack's server-encrypted
+    // links have none and must keep opening on the web.
+    for component in details["components"].as_array().unwrap() {
+        assert_eq!(component["#"], "k=*");
+    }
+}
+
+#[tokio::test]
 async fn create_secret_returns_redirect() {
     let server = TestServer::start().await;
     let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();

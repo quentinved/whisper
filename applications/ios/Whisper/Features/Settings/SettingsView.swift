@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    static let repository = URL(string: "https://github.com/quentinved/whisper")!
+
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
@@ -14,6 +16,7 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        .submitLabel(.done)
                         .accessibilityIdentifier("server-field")
                     if !settings.serverIsValid {
                         Text("Not a valid URL — falling back to the default server.")
@@ -27,7 +30,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Server")
                 } footer: {
-                    Text("Point this at your own Whisper instance to keep secrets on infrastructure you control. Links you open always use the server they came from.")
+                    Text("Use your own Whisper server. Links you open always use the server they came from.")
                 }
 
                 Section {
@@ -39,10 +42,24 @@ struct SettingsView: View {
                 } footer: {
                     Text(
                         BiometricGate.isAvailable
-                            ? "Asks for Face ID or your passcode before a secret is shown."
-                            : "This device has no passcode or biometrics set up, so this has no effect."
+                            ? "Asks for Face ID or your passcode before showing a secret."
+                            : "No Face ID or passcode is set up on this iPhone, so this does nothing."
                     )
                 }
+
+                Section {
+                    Link(destination: Self.repository) {
+                        Label("View the code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    Link(destination: Self.repository.appendingPathComponent("issues")) {
+                        Label("Report a bug or request a feature", systemImage: "ladybug")
+                    }
+                } header: {
+                    Text("Open source")
+                } footer: {
+                    Text("Read exactly how your secrets are encrypted, or give the repo a ⭐️.")
+                }
+                .tint(Theme.accent)
 
                 Section {
                     LabeledContent("Encryption", value: "AES-256-GCM")
@@ -51,11 +68,12 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("Secrets are encrypted on this iPhone before they are uploaded. The server stores ciphertext and has no key for it, so links made here open in the web app and links from the CLI or Slack open here.")
+                    Text("Secrets are encrypted on this iPhone. The server only stores data it can't read. Links work across the app, the website, the CLI and Slack.")
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .scrollDismissesKeyboard(.immediately)
+            .background(AuroraBackground())
             .navigationTitle("Settings")
         }
     }

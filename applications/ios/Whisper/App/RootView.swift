@@ -32,6 +32,7 @@ struct RootView: View {
                 .tag(Tab.settings)
         }
         .tint(Theme.accent)
+        .background(KeyboardDismissal())
         .environment(settings)
         .environment(sent)
         .onOpenURL { url in

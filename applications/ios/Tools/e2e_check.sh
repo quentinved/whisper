@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# End-to-end check against a running Whisper server, exercising the exact Swift
-# files the app ships — `EphemeralCrypto`, `WhisperLink` and `WhisperClient` —
-# rather than a reimplementation of them.
+# End-to-end check against a running Whisper server, exercising the exact WhisperKit
+# commands and adapters the app ships — `CreateClientEncryptedSecret`,
+# `GetSecretById`, `AesGcm` and `HTTPSharedSecretRepository` — rather than a
+# reimplementation of them.
 #
 # It proves the three things that have to hold for the app to be useful:
 #   1. a secret sealed on the client can be stored and read back by the client;
@@ -14,9 +15,7 @@ set -euo pipefail
 
 SERVER="${1:-http://localhost:1212}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-CORE="$REPO_ROOT/applications/ios/Whisper/Core"
-BUILD_DIR="$(mktemp -d)"
-trap 'rm -rf "$BUILD_DIR"' EXIT
+KIT="$REPO_ROOT/applications/ios/WhisperKit"
 
 echo "==> Server: $SERVER"
 if ! curl -fsS -o /dev/null "$SERVER/health"; then
@@ -24,65 +23,10 @@ if ! curl -fsS -o /dev/null "$SERVER/health"; then
   exit 1
 fi
 
-echo "==> Building a CLI from the app's own networking and crypto sources"
-cat > "$BUILD_DIR/main.swift" <<'EOF'
-import Foundation
-
-let args = CommandLine.arguments
-let semaphore = DispatchSemaphore(value: 0)
-var exitCode: Int32 = 0
-
-Task {
-    do {
-        switch args[1] {
-        case "create":
-            let server = URL(string: args[2])!
-            let sealed = try EphemeralCrypto.seal(args[3])
-            let selfDestruct = args.count > 4 && args[4] == "burn"
-            let created = try await WhisperClient(server: server).createEphemeral(
-                payloadB64URL: sealed.payloadB64URL,
-                expiration: Date().addingTimeInterval(3600),
-                selfDestruct: selfDestruct
-            )
-            print(WhisperLink(id: created.id, key: sealed.keyB64URL, server: server).url.absoluteString)
-
-        case "open":
-            guard let link = WhisperLink.parse(args[2]) else {
-                throw NSError(domain: "e2e", code: 1,
-                              userInfo: [NSLocalizedDescriptionKey: "unparseable link"])
-            }
-            let client = WhisperClient(server: link.server)
-            let fetched = try await client.fetch(id: link.id)
-            print(
-                fetched.clientEncrypted
-                    ? try EphemeralCrypto.open(
-                        payloadB64URL: fetched.secret, keyB64URL: link.key)
-                    : fetched.secret
-            )
-
-        case "payload":
-            // The raw stored bytes plus the key, so the Rust side can try them.
-            guard let link = WhisperLink.parse(args[2]) else { exit(1) }
-            let fetched = try await WhisperClient(server: link.server).fetch(id: link.id)
-            print("\(link.key) \(fetched.secret)")
-
-        default:
-            exitCode = 2
-        }
-    } catch {
-        FileHandle.standardError.write("\(error.localizedDescription)\n".data(using: .utf8)!)
-        exitCode = 1
-    }
-    semaphore.signal()
-}
-
-semaphore.wait()
-exit(exitCode)
-EOF
-swiftc -O -o "$BUILD_DIR/whisper_client" \
-  "$BUILD_DIR/main.swift" \
-  "$CORE/Base64URL.swift" "$CORE/EphemeralCrypto.swift" \
-  "$CORE/WhisperLink.swift" "$CORE/WhisperClient.swift"
+echo "==> Building whisper-probe from the app's own WhisperKit adapters"
+# Xcode's toolchain, not a swiftly/brew one on PATH, so it matches the SDK.
+xcrun swift build -q -c release --package-path "$KIT" --product whisper-probe
+PROBE="$(xcrun swift build -c release --package-path "$KIT" --show-bin-path)/whisper-probe"
 
 cargo build -q --manifest-path "$REPO_ROOT/Cargo.toml" -p aes-gcm-crypto --example interop_vector
 RUST="$REPO_ROOT/target/debug/examples/interop_vector"
@@ -100,12 +44,12 @@ check() {
 SECRET="e2e secret 🔐 $(date +%s)"
 
 echo "==> 1. Create a re-readable secret from the client, then read it back"
-link="$("$BUILD_DIR/whisper_client" create "$SERVER" "$SECRET")"
+link="$("$PROBE" create "$SERVER" "$SECRET")"
 echo "  link: ${link:0:60}…"
-check "client round-trip" "$SECRET" "$("$BUILD_DIR/whisper_client" open "$link")"
+check "client round-trip" "$SECRET" "$("$PROBE" open "$link")"
 
 echo "==> 2. Rust decrypts what the client uploaded (link opens in the web UI)"
-read -r key payload < <("$BUILD_DIR/whisper_client" payload "$link")
+read -r key payload < <("$PROBE" payload "$link")
 check "swift -> rust" "$SECRET" "$("$RUST" decrypt "$key" "$payload")"
 
 echo "==> 3. The server never sees the key"
@@ -119,9 +63,9 @@ else
 fi
 
 echo "==> 4. Burn after reading destroys the secret"
-burn_link="$("$BUILD_DIR/whisper_client" create "$SERVER" "one-time" burn)"
-check "first read" "one-time" "$("$BUILD_DIR/whisper_client" open "$burn_link")"
-if "$BUILD_DIR/whisper_client" open "$burn_link" >/dev/null 2>&1; then
+burn_link="$("$PROBE" create "$SERVER" "one-time" burn)"
+check "first read" "one-time" "$("$PROBE" open "$burn_link")"
+if "$PROBE" open "$burn_link" >/dev/null 2>&1; then
   echo "  FAIL the secret survived its first read"
   failures=$((failures + 1))
 else

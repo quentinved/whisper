@@ -16,7 +16,7 @@ struct SentView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(AuroraBackground())
             .navigationTitle("Sent")
         }
         .task { await sent.refreshAll() }
@@ -35,7 +35,7 @@ struct SentView: View {
                     offsets.map { sent.entries[$0].token }.forEach(sent.remove(token:))
                 }
             } footer: {
-                Text("Saved on this device only — never the secret or its link. Swipe to remove.")
+                Text("Kept on this iPhone only, never the secret or its link. Swipe to remove.")
             }
         }
         .refreshable { await sent.refreshAll() }
@@ -44,12 +44,10 @@ struct SentView: View {
     private func row(_ entry: SentSecret) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             DeliveryStatusLabel(status: sent.statuses[entry.token])
-            HStack(spacing: 6) {
-                Text("Sent " + entry.createdAt.formatted(date: .abbreviated, time: .shortened))
-                if entry.selfDestruct {
-                    Text("· self-destruct")
-                }
-            }
+            Text(
+                "Sent " + entry.createdAt.formatted(date: .abbreviated, time: .shortened)
+                    + (entry.selfDestruct ? " · opens once" : "")
+            )
             .font(.system(size: 13))
             .foregroundStyle(Theme.textMuted)
         }
@@ -60,14 +58,16 @@ struct SentView: View {
 
     private var emptyState: some View {
         VStack(spacing: Theme.Spacing.snug) {
-            Image(systemName: "tray")
-                .font(.system(size: 34))
-                .foregroundStyle(Theme.textMuted)
+            GlassBadge(size: 76, cornerRadius: 24) {
+                Image(systemName: "tray")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(Theme.markGradient)
+            }
             Text("Nothing sent yet")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Secrets you create here show up in this list, so you can see when they're opened.")
-                .font(.system(size: 14))
+            Text("Secrets you send show up here, so you can see when they're opened.")
+                .font(.system(size: 15))
                 .foregroundStyle(Theme.textMuted)
                 .multilineTextAlignment(.center)
         }

@@ -17,5 +17,7 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 applications/ios/build/
+applications/ios/WhisperKit/.build/
+applications/ios/WhisperKit/.swiftpm/
 *.xcarchive
 *.ipa

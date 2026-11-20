@@ -10,9 +10,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-CORE="$REPO_ROOT/applications/ios/Whisper/Core"
-BUILD_DIR="$(mktemp -d)"
-trap 'rm -rf "$BUILD_DIR"' EXIT
+KIT="$REPO_ROOT/applications/ios/WhisperKit"
 
 PLAINTEXTS=(
   "hello"
@@ -23,30 +21,10 @@ line
 secret"
 )
 
-echo "==> Building the Swift harness"
-cat > "$BUILD_DIR/main.swift" <<'EOF'
-import Foundation
-
-// Exits non-zero on failure rather than trapping, so the wrong-key case below
-// reads as a rejection instead of a crash.
-let args = CommandLine.arguments
-do {
-    switch args[1] {
-    case "encrypt":
-        let sealed = try EphemeralCrypto.seal(args[2])
-        print("\(sealed.keyB64URL) \(sealed.payloadB64URL)")
-    case "decrypt":
-        print(try EphemeralCrypto.open(payloadB64URL: args[3], keyB64URL: args[2]))
-    default:
-        exit(2)
-    }
-} catch {
-    FileHandle.standardError.write("\(error.localizedDescription)\n".data(using: .utf8)!)
-    exit(1)
-}
-EOF
-swiftc -O -o "$BUILD_DIR/swift_crypto" \
-  "$BUILD_DIR/main.swift" "$CORE/Base64URL.swift" "$CORE/EphemeralCrypto.swift"
+echo "==> Building whisper-probe from the app's own WhisperKit adapters"
+# Xcode's toolchain, not a swiftly/brew one on PATH, so it matches the SDK.
+xcrun swift build -q -c release --package-path "$KIT" --product whisper-probe
+PROBE="$(xcrun swift build -c release --package-path "$KIT" --show-bin-path)/whisper-probe"
 
 echo "==> Building the Rust harness"
 cargo build -q --manifest-path "$REPO_ROOT/Cargo.toml" -p aes-gcm-crypto --example interop_vector
@@ -66,16 +44,16 @@ check() {
 echo "==> Round-tripping ${#PLAINTEXTS[@]} secrets in both directions"
 for plaintext in "${PLAINTEXTS[@]}"; do
   read -r key payload < <("$RUST" encrypt "$plaintext")
-  check "rust -> swift" "$plaintext" "$("$BUILD_DIR/swift_crypto" decrypt "$key" "$payload")"
+  check "rust -> swift" "$plaintext" "$("$PROBE" decrypt "$key" "$payload")"
 
-  read -r key payload < <("$BUILD_DIR/swift_crypto" encrypt "$plaintext")
+  read -r key payload < <("$PROBE" encrypt "$plaintext")
   check "swift -> rust" "$plaintext" "$("$RUST" decrypt "$key" "$payload")"
 done
 
 echo "==> Rejecting a payload sealed under a different key"
-read -r _ payload < <("$BUILD_DIR/swift_crypto" encrypt "secret")
-read -r other_key _ < <("$BUILD_DIR/swift_crypto" encrypt "decoy")
-if "$BUILD_DIR/swift_crypto" decrypt "$other_key" "$payload" >/dev/null 2>&1; then
+read -r _ payload < <("$PROBE" encrypt "secret")
+read -r other_key _ < <("$PROBE" encrypt "decoy")
+if "$PROBE" decrypt "$other_key" "$payload" >/dev/null 2>&1; then
   echo "  FAIL wrong key was accepted"
   failures=$((failures + 1))
 else

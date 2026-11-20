@@ -1,21 +1,40 @@
 import SwiftUI
 
 /// The iOS mirror of the web design system in
-/// `applications/axum/server/assets/css/modern.css`.
+/// `applications/axum/server/assets/css/modern.css`, plus one thing the web
+/// doesn't have: the brand colours of the app icon (`Tools/sync_brand.swift`,
+/// "aurora" style) for actions, toggles and the backdrop.
 ///
-/// Whisper's look is deliberately monochrome — black on white, white on black,
-/// with colour reserved for warnings and errors so that a destructive action is
-/// the only thing on screen that is ever coloured. Every value here maps to a
-/// CSS custom property of the same name; when one changes there, change it here
-/// too rather than inventing a new shade.
+/// Text, borders and status colours map to the CSS custom property of the same
+/// name; when one changes there, change it here too.
 enum Theme {
+    // MARK: Brand — from the app icon
+
+    static let violet = Color.themed(light: 0x7C3AED, dark: 0x8B5CF6)
+    static let indigo = Color.themed(light: 0x4F46E5, dark: 0x6366F1)
+    static let mint = Color.themed(light: 0x0D9488, dark: 0x5EEAD4)
+
+    /// Primary actions and the brand mark.
+    static let brandGradient = LinearGradient(
+        colors: [violet, indigo],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    /// The icon's ribbon: violet into mint.
+    static let markGradient = LinearGradient(
+        colors: [Color.themed(light: 0x6D28D9, dark: 0xC4B5FD), mint],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     // MARK: Surfaces
 
-    /// `--bg-gradient-start` → `--bg-gradient-end`
+    /// Base of the aurora backdrop: porcelain by day, the icon's midnight by night.
     static let backgroundGradient = LinearGradient(
         colors: [
-            .themed(light: 0xFFFFFF, dark: 0x0A0A0A),
-            .themed(light: 0xF5F5F5, dark: 0x111111),
+            .themed(light: 0xFBFAFF, dark: 0x0E0B22),
+            .themed(light: 0xF1EFFA, dark: 0x050509),
         ],
         startPoint: .top,
         endPoint: .bottom
@@ -34,17 +53,17 @@ enum Theme {
     static let textSecondary = Color.themed(light: 0x333333, dark: 0xCCCCCC)
     /// `--text-muted`
     static let textMuted = Color.themed(light: 0x888888, dark: 0x777777)
-    /// `--text-inverse` — text drawn on top of `accent`
-    static let textInverse = Color.themed(light: 0xFFFFFF, dark: 0x0A0A0A)
+    /// Text and icons drawn on the brand gradient.
+    static let onBrand = Color.white
 
     // MARK: Lines & accent
 
     /// `--border-color`
     static let border = Color.themed(light: 0xE0E0E0, darkWhiteAlpha: 0.12)
-    /// `--border-focus`
-    static let borderFocus = Color.themed(light: 0x111111, dark: 0xFFFFFF)
-    /// `--accent-solid` — the one high-contrast fill, used for primary actions
-    static let accent = Color.themed(light: 0x111111, dark: 0xFFFFFF)
+    /// Focused fields glow in the brand colour.
+    static let borderFocus = violet
+    /// Tint for toggles, tabs and links.
+    static let accent = violet
 
     // MARK: Status
 

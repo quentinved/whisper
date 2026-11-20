@@ -1,4 +1,5 @@
 import SwiftUI
+import WhisperCore
 
 /// "● Opened · today 14:02", shared by the "Link ready" screen and the Sent
 /// list so both say the same thing the same way as the website.
@@ -51,10 +52,11 @@ struct DeliveryStatusLabel: View {
         }
     }
 
+    /// Mint for good news, amber while it's still out there, grey once it's moot.
     private var dotColor: Color {
         guard case .known(let s) = status else { return Theme.textMuted }
         switch s.state {
-        case .opened: return Theme.accent
+        case .opened: return Theme.mint
         case .waiting: return Theme.warning
         case .expired: return Theme.textMuted
         }

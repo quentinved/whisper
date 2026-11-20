@@ -1,9 +1,10 @@
 import Foundation
+import WhisperCore
 
 /// A secret sent from this device. Holds only the status token, which can read
 /// whether the secret was opened — never the link, its id or its `#k=` key.
 struct SentSecret: Codable, Identifiable, Equatable, Sendable {
-    let token: String
+    let token: StatusToken
     /// The server it was created on: changing servers in Settings must not
     /// break older entries.
     let server: URL
@@ -11,7 +12,7 @@ struct SentSecret: Codable, Identifiable, Equatable, Sendable {
     let expiresAt: Date
     let selfDestruct: Bool
 
-    var id: String { token }
+    var id: StatusToken { token }
 }
 
 /// The "Sent" list, kept in `UserDefaults` like the web keeps it in
@@ -29,11 +30,13 @@ final class SentStore {
     private static let key = "sent_secrets"
 
     private(set) var entries: [SentSecret]
-    private(set) var statuses: [String: RowStatus] = [:]
+    private(set) var statuses: [StatusToken: RowStatus] = [:]
     private let defaults: UserDefaults
+    private let dependencies: Dependencies
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, dependencies: Dependencies = .live) {
         self.defaults = defaults
+        self.dependencies = dependencies
         entries =
             defaults.data(forKey: Self.key)
             .flatMap { try? JSONDecoder().decode([SentSecret].self, from: $0) } ?? []
@@ -44,7 +47,7 @@ final class SentStore {
         save()
     }
 
-    func remove(token: String) {
+    func remove(token: StatusToken) {
         entries.removeAll { $0.token == token }
         statuses[token] = nil
         save()
@@ -62,8 +65,8 @@ final class SentStore {
         if statuses[entry.token] == nil { statuses[entry.token] = .checking }
         do {
             guard
-                let status = try await WhisperClient(server: entry.server)
-                    .deliveryStatus(token: entry.token)
+                let status = try await GetDeliveryStatus(token: entry.token)
+                    .handle(repository: dependencies.repository(entry.server))
             else {
                 remove(token: entry.token)
                 return
