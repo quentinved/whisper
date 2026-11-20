@@ -4372,7 +4372,7 @@ dependencies = [
 
 [[package]]
 name = "whisper-server"
-version = "1.4.1"
+version = "1.5.0"
 dependencies = [
  "aes-gcm-crypto",
  "askama",

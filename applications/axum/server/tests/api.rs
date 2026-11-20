@@ -14,6 +14,9 @@ use whisper_server::app_state::AppState;
 struct TestServer {
     base_url: String,
     client: reqwest::Client,
+    /// Direct database access, for states the API refuses to create (e.g. a
+    /// receipt whose secret already expired).
+    pool: PgPool,
     _container: testcontainers::ContainerAsync<Postgres>,
     _aes_key_file: NamedTempFile,
 }
@@ -44,7 +47,7 @@ impl TestServer {
         // Create AppState
         let analytics: Arc<dyn AnalyticsTracker> = Arc::new(CompositeTracker::new(vec![]));
         let app_state = Arc::new(AppState::new(
-            pool,
+            pool.clone(),
             secret_key,
             "http://localhost".to_string(),
             None,
@@ -68,6 +71,7 @@ impl TestServer {
         TestServer {
             base_url: format!("http://127.0.0.1:{}", port),
             client,
+            pool,
             _container: container,
             _aes_key_file: key_file,
         }
@@ -114,6 +118,32 @@ async fn health_check() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn apple_app_site_association_routes_key_links_to_the_ios_app() {
+    let server = TestServer::start().await;
+
+    let resp = server
+        .client
+        .get(server.url("/.well-known/apple-app-site-association"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()["content-type"], "application/json");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let details = &body["applinks"]["details"][0];
+    assert_eq!(
+        details["appIDs"][0],
+        "7WBNUC3KR9.com.quentinvedrenne.whisper"
+    );
+    // Only links carrying a key open in the app; Slack's server-encrypted
+    // links have none and must keep opening on the web.
+    for component in details["components"].as_array().unwrap() {
+        assert_eq!(component["#"], "k=*");
+    }
 }
 
 #[tokio::test]
@@ -373,6 +403,32 @@ async fn create_secret_too_large() {
 }
 
 #[tokio::test]
+async fn footer_links_the_encryption_badge_and_the_repo_to_github() {
+    let server = TestServer::start().await;
+    let body = server
+        .client
+        .get(server.url("/"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    // The badge shows where encryption happens, not the CLI docs.
+    assert!(
+        body.contains(
+            r#"href="https://github.com/quentinved/Whisper/tree/main/adapters/aes-gcm-crypto""#
+        ),
+        "the AES-256-GCM badge must open the encryption crate"
+    );
+    assert!(
+        body.contains(r#"href="https://github.com/quentinved/Whisper""#),
+        "the footer must link to the repo"
+    );
+}
+
+#[tokio::test]
 async fn homepage_has_absolute_seo_tags() {
     let server = TestServer::start().await;
     let body = server
@@ -517,5 +573,205 @@ async fn static_assets_are_cache_busted_with_version() {
     assert!(
         body.contains("/assets/create_secret.js?v="),
         "create_secret.js must be cache-busted with ?v="
+    );
+    assert!(
+        body.contains("/assets/sent_secrets.js?v="),
+        "sent_secrets.js must be cache-busted with ?v="
+    );
+}
+
+async fn create_ephemeral_json(server: &TestServer, body: serde_json::Value) -> serde_json::Value {
+    let resp = server
+        .client
+        .post(server.url("/v1/ephemeral"))
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    resp.json().await.unwrap()
+}
+
+async fn delivery_status(server: &TestServer, token: &str) -> reqwest::Response {
+    server
+        .client
+        .get(server.url(&format!("/v1/status/{}", token)))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn ephemeral_without_tracking_returns_no_status_token() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+        }),
+    )
+    .await;
+    assert!(body["id"].is_string());
+    assert!(
+        body.get("status_token").is_none(),
+        "existing clients must see an unchanged response"
+    );
+}
+
+#[tokio::test]
+async fn delivery_status_goes_from_waiting_to_opened_and_survives_self_destruct() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+            "self_destruct": true,
+            "track_delivery": true,
+        }),
+    )
+    .await;
+    let id = body["id"].as_str().unwrap().to_string();
+    let token = body["status_token"].as_str().unwrap().to_string();
+
+    let resp = delivery_status(&server, &token).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()["cache-control"], "no-store");
+    let status: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(status["state"], "waiting");
+    assert!(status["opened_at"].is_null());
+    assert!(status["expires_at"].is_string());
+
+    // A non-consuming peek is not an open.
+    server
+        .client
+        .get(server.url(&format!("/secret/{}/meta", id)))
+        .send()
+        .await
+        .unwrap();
+    let status: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(status["state"], "waiting", "/meta must not count as opened");
+
+    // The reveal burns the secret but the receipt outlives it.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", id)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let status: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(status["state"], "opened");
+    assert!(status["opened_at"].is_string());
+
+    // The status token is not a secret id.
+    let resp = server
+        .client
+        .get(server.url(&format!("/secret/{}", token)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn delivery_status_unknown_is_404_and_malformed_is_400() {
+    let server = TestServer::start().await;
+    let resp = delivery_status(&server, &uuid::Uuid::new_v4().to_string()).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let resp = delivery_status(&server, "not-a-token").await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn delivery_status_keeps_the_first_open_time_of_a_reusable_secret() {
+    let server = TestServer::start().await;
+    let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
+    let body = create_ephemeral_json(
+        &server,
+        serde_json::json!({
+            "payload": base64_url::encode(&[0x42u8; 12 + 21 + 16]),
+            "expiration": expiration,
+            "self_destruct": false,
+            "track_delivery": true,
+        }),
+    )
+    .await;
+    let id = body["id"].as_str().unwrap().to_string();
+    let token = body["status_token"].as_str().unwrap().to_string();
+    let reveal = || {
+        server
+            .client
+            .get(server.url(&format!("/secret/{}", id)))
+            .send()
+    };
+
+    assert_eq!(reveal().await.unwrap().status(), StatusCode::OK);
+    let first: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(first["state"], "opened");
+
+    // Past the 1-second resolution of the timestamps, so a moved time shows.
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    assert_eq!(reveal().await.unwrap().status(), StatusCode::OK);
+    let second: serde_json::Value = delivery_status(&server, &token).await.json().await.unwrap();
+    assert_eq!(
+        second["opened_at"], first["opened_at"],
+        "a second reveal must not move the first-open time"
+    );
+}
+
+/// Plants a receipt whose secret expired `days_ago` days ago — a state the
+/// API refuses to create.
+async fn insert_expired_receipt(server: &TestServer, days_ago: i32) -> String {
+    let token = uuid::Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO secret_receipts (status_token, secret_id, expiration)
+         VALUES ($1, $2, NOW() - make_interval(days => $3))",
+    )
+    .bind(&token)
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(days_ago)
+    .execute(&server.pool)
+    .await
+    .unwrap();
+    token
+}
+
+#[tokio::test]
+async fn expired_receipts_report_expired_then_are_purged_after_retention() {
+    use whisper_core::commands::shared_secret::delete_expired_secrets::DeleteExpiredSecrets;
+    use whisper_postgresql::shared_secrets_repository::PostgreSQLSharedSecretsRepository;
+
+    let server = TestServer::start().await;
+    let recent = insert_expired_receipt(&server, 1).await;
+    let stale = insert_expired_receipt(&server, 8).await;
+
+    for token in [&recent, &stale] {
+        let resp = delivery_status(&server, token).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let status: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(status["state"], "expired");
+        assert!(status["opened_at"].is_null());
+    }
+
+    // The every-minute cleanup job, run once against the real database.
+    let repository = PostgreSQLSharedSecretsRepository::new(server.pool.clone());
+    DeleteExpiredSecrets::new()
+        .handle(&repository)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        delivery_status(&server, &stale).await.status(),
+        StatusCode::NOT_FOUND,
+        "a receipt 8 days past expiry must be purged"
+    );
+    assert_eq!(
+        delivery_status(&server, &recent).await.status(),
+        StatusCode::OK,
+        "a receipt within the 7-day window must be kept"
     );
 }

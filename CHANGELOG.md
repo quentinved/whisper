@@ -1,4 +1,16 @@
 # Changelog
+## 19/11/2026 - https://github.com/quentinved/whisper/pull/24
+- Delivery status: the website now shows a "Sent secrets" list on the home and "Link Created" pages, with each secret you sent from this browser marked Waiting, Opened (with the time) or Expired (never opened). No account and no email: the list lives in the browser's localStorage and holds only a status key, never the secret, its link or its key
+- New `GET /v1/status/:token` endpoint (`{ state, expires_at, opened_at }`, `Cache-Control: no-store`). The status token can only read the status: it cannot open, decrypt or burn the secret, and the share link cannot read the status
+- `POST /v1/ephemeral` accepts an opt-in `track_delivery: true` and then also returns a `status_token`. Clients that don't send it (CLI, Discord, Raycast) get exactly the same response as before; Slack is unchanged
+- New `secret_receipts` table (migration `0004`) stores only the first time a tracked secret is revealed. It outlives a self-destruct secret and is deleted 7 days after the secret expires by the existing cleanup job. Peeking with `/secret/:id/meta` or opening the reveal page does not count as opened; a reveal never fails because the receipt could not be stamped
+- Privacy policy: discloses the first-opened timestamp, its 7-day retention, and what the browser's localStorage now holds
+- iOS app (`applications/ios/`, now in the repo): zero-knowledge send and open, with a hexagonal `WhisperKit` Swift package mirroring the Rust crates (`WhisperCore` ≙ services-core, `WhisperCrypto` ≙ aes-gcm-crypto, `WhisperHTTP` as the server adapter). **Free Form** and **Multiple Values** like the web form, custom expiry, QR code, secrets blurred until tapped, and multi-value secrets shown field by field
+- iOS: new **Sent** tab (pull to refresh, swipe to remove) and a live **Delivery** card on the "Link ready" screen, refreshed when the app comes back to the foreground (`GetDeliveryStatus` in WhisperCore). The list lives in `UserDefaults`, holds status tokens only, and keeps each entry's server, so changing servers in Settings doesn't break older entries. UI tests cover Waiting → Opened. Comes with Xcode entries in `.gitignore` and the `interop_vector` Rust example its test scripts use; analytics now count iOS as `ios` instead of `unknown`
+- Universal Links: the server answers `GET /.well-known/apple-app-site-association`, so share links carrying a `#k=` key open in the iOS app; Slack's server-encrypted links keep opening on the web
+- Website footer: the "AES-256-GCM · End-to-End" badge now opens the encryption crate on GitHub (`adapters/aes-gcm-crypto`) instead of the CLI docs, and a new **GitHub** link points to the repo
+- Fix the Windows CLI clippy job: newer clippy flags `large_enum_variant` on the CLI's `Outcome` enum (`std::process::Command` is 200+ bytes on Windows), so the command is now boxed
+- Server v1.5.0
 ## 25/09/2026 - https://github.com/quentinved/whisper/pull/23
 - Fix the CLI release: npm 12 dropped Node 20, so `npm install -g npm@latest` failed on the release runners and v1.1.0 never reached npm. The release now runs on Node 24 LTS and pins `npm@11` (Trusted Publishing needs npm >= 11.5.1)
 - Fix an `unused_mut` warning in `run` that only shows up on Windows. CI now runs clippy on the CLI on Windows too, so code that only compiles off Unix is checked

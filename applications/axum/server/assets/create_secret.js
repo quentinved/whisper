@@ -329,13 +329,15 @@ if (form && submitBtn) {
     // 3. Encrypt locally, POST only ciphertext
     try {
       const { keyB64, payloadB64 } = await encryptSecret(plaintext);
+      const selfDestruct = document.getElementById('self_destruct').checked;
       const response = await fetch('/v1/ephemeral?source=web', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           payload: payloadB64,
           expiration: expiration,
-          self_destruct: document.getElementById('self_destruct').checked,
+          self_destruct: selfDestruct,
+          track_delivery: true,
         }),
       });
       if (response.status !== 201) {
@@ -347,6 +349,9 @@ if (form && submitBtn) {
         return showFormError(reason);
       }
       const body = await response.json();
+      if (window.whisperSent) {
+        window.whisperSent.remember(body.status_token, new Date(expiration * 1000).toISOString(), selfDestruct);
+      }
       // The key never leaves this device except inside the fragment,
       // which browsers do not send to servers.
       window.location.assign('/?shared_secret_id=' + encodeURIComponent(body.id) + '#k=' + keyB64);

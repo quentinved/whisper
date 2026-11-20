@@ -1,5 +1,8 @@
+use crate::entities::delivery_receipt::DeliveryReceipt;
 use crate::entities::shared_secret::SharedSecret;
 use crate::values_object::shared_secret::secret_id::SecretId;
+use crate::values_object::shared_secret::status_token::StatusToken;
+use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -80,4 +83,32 @@ pub trait SharedSecretRepository {
     /// # Return
     /// The number of deleted secrets
     fn delete_all_expired(&self) -> impl std::future::Future<Output = Result<u64>> + Send;
+
+    /// Store the delivery receipt of a tracked secret
+    fn save_receipt(
+        &self,
+        receipt: DeliveryReceipt,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+
+    /// Stamp the first reveal of a secret. No-op when the secret is untracked
+    /// or was already opened.
+    fn mark_receipt_opened(
+        &self,
+        secret_id: &SecretId,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+
+    /// Get a delivery receipt by its status token
+    fn get_receipt(
+        &self,
+        status_token: &StatusToken,
+    ) -> impl std::future::Future<Output = Result<Option<DeliveryReceipt>>> + Send;
+
+    /// Delete receipts whose secret expired before `cutoff`
+    ///
+    /// # Return
+    /// The number of deleted receipts
+    fn delete_receipts_expired_before(
+        &self,
+        cutoff: DateTime<Utc>,
+    ) -> impl std::future::Future<Output = Result<u64>> + Send;
 }

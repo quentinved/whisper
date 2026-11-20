@@ -151,8 +151,11 @@
   <a href="/" class="new-link">Share another secret</a>
 </div>
 {% endif %}
+
+<section id="sent-secrets" class="sent-secrets" hidden></section>
 {% endblock %}
 
 {% block scripts %}
+<script src="/assets/sent_secrets.js?v={{ seo.asset_version }}"></script>
 <script src="/assets/create_secret.js?v={{ seo.asset_version }}"></script>
 {% endblock %}

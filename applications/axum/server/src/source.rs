@@ -9,6 +9,7 @@ pub enum Source {
     Slack,
     Discord,
     Raycast,
+    Ios,
     #[default]
     #[serde(other)]
     Unknown,
@@ -22,6 +23,7 @@ impl fmt::Display for Source {
             Source::Slack => write!(f, "slack"),
             Source::Discord => write!(f, "discord"),
             Source::Raycast => write!(f, "raycast"),
+            Source::Ios => write!(f, "ios"),
             Source::Unknown => write!(f, "unknown"),
         }
     }

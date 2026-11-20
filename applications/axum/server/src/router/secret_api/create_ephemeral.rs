@@ -5,12 +5,13 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::info;
+use tracing::{error, info};
 use whisper_core::{
     commands::shared_secret::{
-        create_client_encrypted_secret::CreateClientEncryptedSecret, create_secret::MAX_SECRET_SIZE,
+        create_client_encrypted_secret::CreateClientEncryptedSecret,
+        create_delivery_receipt::CreateDeliveryReceipt, create_secret::MAX_SECRET_SIZE,
     },
-    values_object::shared_secret::secret_expiration::SecretExpiration,
+    values_object::shared_secret::{secret_expiration::SecretExpiration, secret_id::SecretId},
 };
 
 use crate::{app_state::AppState, error::CustomError, source::Source};
@@ -28,11 +29,17 @@ pub struct CreateEphemeralBody {
     pub expiration: i64,
     #[serde(default)]
     pub self_destruct: bool,
+    /// Opt-in: record when the secret is first opened and return a sender-only
+    /// `status_token` to read it. Clients that don't send it see no change.
+    #[serde(default)]
+    pub track_delivery: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct CreateEphemeralResponse {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_token: Option<String>,
 }
 
 pub async fn create_ephemeral(
@@ -80,10 +87,31 @@ pub async fn create_ephemeral(
         }),
     );
 
+    let status_token = match body.track_delivery {
+        true => create_receipt(&app_state, secret_id, expiration).await,
+        false => None,
+    };
+
     Ok((
         StatusCode::CREATED,
         Json(CreateEphemeralResponse {
             id: secret_id.value().to_string(),
+            status_token,
         }),
     ))
+}
+
+/// The secret is already stored: if its receipt can't be, the sender still
+/// gets their link, just without delivery tracking.
+async fn create_receipt(
+    app_state: &AppState,
+    secret_id: SecretId,
+    expiration: SecretExpiration,
+) -> Option<String> {
+    CreateDeliveryReceipt::new(secret_id, expiration)
+        .handle(&app_state.shared_secret_repository())
+        .await
+        .map(|token| token.to_string())
+        .map_err(|err| error!("Delivery receipt not created id={}: {}", secret_id, err))
+        .ok()
 }

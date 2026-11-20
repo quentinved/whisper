@@ -113,7 +113,7 @@ async fn main() {
 
     let error = match outcome {
         Ok(Outcome::Done) => return,
-        Ok(Outcome::HandOver(child)) => commands::run::hand_over(child).await,
+        Ok(Outcome::HandOver(child)) => commands::run::hand_over(*child).await,
         Err(e) => e,
     };
     eprintln!("{} {}", style("error:").red().bold(), error);
@@ -124,7 +124,8 @@ async fn main() {
 enum Outcome {
     Done,
     /// `run` replaces this process with the user's command, so it is the last step.
-    HandOver(std::process::Command),
+    /// Boxed: `Command` is 200+ bytes on Windows (clippy::large_enum_variant).
+    HandOver(Box<std::process::Command>),
 }
 
 async fn execute(command: Commands) -> Result<Outcome, CliError> {
@@ -132,7 +133,7 @@ async fn execute(command: Commands) -> Result<Outcome, CliError> {
         Commands::Run { command } => {
             return commands::run::prepare(&command)
                 .await
-                .map(Outcome::HandOver)
+                .map(|child| Outcome::HandOver(Box::new(child)))
         }
         Commands::Get { target } => commands::get::run(&target).await,
         Commands::Join { link } => commands::join::run(&link).await,

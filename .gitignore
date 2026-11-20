@@ -11,3 +11,13 @@ aes_key.bin
 
 # npm packaging
 npm/whisper-secrets/node_modules/
+
+# Xcode (iOS app): per-user state and build output
+xcuserdata/
+*.xcuserstate
+DerivedData/
+applications/ios/build/
+applications/ios/WhisperKit/.build/
+applications/ios/WhisperKit/.swiftpm/
+*.xcarchive
+*.ipa
