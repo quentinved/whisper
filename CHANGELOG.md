@@ -1,4 +1,6 @@
 # Changelog
+## 23/11/2026 - https://github.com/quentinved/whisper/pull/25
+- iOS: a short tutorial on first launch explains the app to newcomers: what Whisper is, then Send, why only the link can open a secret, Sent and Open. Skip it any time, replay it from **Settings › About › Show the tutorial**; opening the app from a Whisper link skips it so you land on your secret
 ## 19/11/2026 - https://github.com/quentinved/whisper/pull/24
 - Delivery status: the website now shows a "Sent secrets" list on the home and "Link Created" pages, with each secret you sent from this browser marked Waiting, Opened (with the time) or Expired (never opened). No account and no email: the list lives in the browser's localStorage and holds only a status key, never the secret, its link or its key
 - New `GET /v1/status/:token` endpoint (`{ state, expires_at, opened_at }`, `Cache-Control: no-store`). The status token can only read the status: it cannot open, decrypt or burn the secret, and the share link cannot read the status
