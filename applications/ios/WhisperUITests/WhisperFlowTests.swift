@@ -85,6 +85,36 @@ final class WhisperFlowTests: XCTestCase {
         capture("05-revealed")
     }
 
+    /// A revealed secret must not sit in the app until the next link: once its
+    /// time is up, the screen forgets the plaintext on its own.
+    func testRevealedSecretClearsItself() throws {
+        app.terminate()
+        app.launchEnvironment["WHISPER_REVEAL_LIFETIME"] = "5"
+        app.launch()
+
+        let editor = app.textViews["secret-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10), "composer never appeared")
+        editor.tap()
+        editor.typeText("short-lived-\(Int.random(in: 1000...9999))")
+        app.buttons["create-button"].tap()
+
+        let linkLabel = app.staticTexts["share-link"]
+        XCTAssertTrue(linkLabel.waitForExistence(timeout: 20), "no link was produced")
+        openLink(linkLabel.label)
+
+        let reveal = app.buttons["reveal-button"]
+        XCTAssertTrue(reveal.waitForExistence(timeout: 20), "confirmation step never appeared")
+        reveal.tap()
+
+        XCTAssertTrue(
+            app.buttons["reveal-toggle"].waitForExistence(timeout: 20),
+            "the secret was never decrypted")
+        XCTAssertTrue(
+            app.textFields["link-field"].waitForExistence(timeout: 20),
+            "the revealed secret never cleared itself")
+        XCTAssertFalse(app.buttons["reveal-toggle"].exists, "the plaintext is still on screen")
+    }
+
     /// The web's "Multiple Values" mode, both ways: build key/value pairs here,
     /// and read them back as separate, individually revealed fields.
     func testMultipleValuesRoundTrip() throws {
@@ -206,8 +236,12 @@ final class WhisperFlowTests: XCTestCase {
         if secondReveal.waitForExistence(timeout: 5) {
             secondReveal.tap()
         }
+        XCTAssertTrue(
+            app.staticTexts["secret-gone"].waitForExistence(timeout: 10),
+            "a burnt secret should land on the gone screen"
+        )
         XCTAssertFalse(
-            app.buttons["reveal-toggle"].waitForExistence(timeout: 10),
+            app.buttons["reveal-toggle"].exists,
             "a burn-after-reading secret was served twice"
         )
         capture("06-burned")
