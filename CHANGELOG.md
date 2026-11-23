@@ -1,6 +1,9 @@
 # Changelog
 ## 23/11/2026 - https://github.com/quentinved/whisper/pull/26
 - iOS: the first-launch tutorial is shorter and friendlier. Four pages instead of five, each with a small preview of the screen it talks about (the composer, a link carrying its key, the Sent list with real "Opened & deleted" / "Waiting" rows) instead of a lone icon, plainer two-line sentences, and a gradient page indicator in place of the grey system dots. The previews stay still when Reduce Motion is on
+- Name a secret after you shared it: on the website, every Sent row has "+ Add a name" (or click the name to rename it; Enter saves, Escape cancels), so the "Link Created" page lets you name the secret you just shared. In the iOS app, tap a row in the Sent tab (or swipe right) or use "Add a name" on the "Link ready" screen. Names stay local-only, never sent to the server
+- iOS: fix taps on system alert buttons being swallowed by the app-wide "tap outside to dismiss the keyboard" gesture
+- Server v1.5.2 (website assets only)
 ## 23/11/2026 - https://github.com/quentinved/whisper/pull/25
 - iOS: a short tutorial on first launch explains the app to newcomers: what Whisper is, then Send, why only the link can open a secret, Sent and Open. Skip it any time, replay it from **Settings › About › Show the tutorial**; opening the app from a Whisper link skips it so you land on your secret
 - iOS: opening a link whose secret was already opened or has expired now shows a calm **Already gone** screen, instead of the paste form with the link still in it and a red error

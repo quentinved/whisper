@@ -262,6 +262,38 @@ final class WhisperFlowTests: XCTestCase {
         capture("07-settings")
     }
 
+    /// A secret shared without a name can be named afterwards, from the
+    /// "Link ready" card, and the name follows it into the Sent list.
+    func testNameASecretAfterSharingIt() throws {
+        let name = "Wi-Fi \(Int.random(in: 100...999))"
+
+        let editor = app.textViews["secret-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("named-later-\(Int.random(in: 1000...9999))")
+        app.buttons["create-button"].tap()
+
+        let addName = app.buttons["rename-button"]
+        XCTAssertTrue(addName.waitForExistence(timeout: 20), "no way to name the secret after sharing")
+        XCTAssertEqual(addName.label, "Add a name")
+        addName.tap()
+
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "the name prompt never appeared")
+        field.typeText(name)
+        app.alerts.buttons["Save"].tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Delivery · \(name)"].waitForExistence(timeout: 5),
+            "the Link ready card didn't pick up the new name")
+        capture("12-named-after-sharing")
+
+        app.buttons["Sent"].tap()
+        let newest = app.descendants(matching: .any).matching(identifier: "sent-row").firstMatch
+        waitForLabel(of: newest, toContain: name)
+        capture("13-sent-with-name")
+    }
+
     // MARK: - Helpers
 
     /// Refuses to run against an unreachable server instead of silently

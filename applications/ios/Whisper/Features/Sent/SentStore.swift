@@ -13,7 +13,7 @@ struct SentSecret: Codable, Identifiable, Equatable, Sendable {
     let selfDestruct: Bool
     /// What the sender called it. Kept on this device only, never sent to the
     /// server. Optional, so entries saved before names existed still decode.
-    let name: String?
+    var name: String?
 
     var id: StatusToken { token }
 
@@ -62,6 +62,18 @@ final class SentStore {
         entries.removeAll { $0.token == token }
         statuses[token] = nil
         save()
+    }
+
+    /// Naming after the fact. Stays on this device like the rest of the entry.
+    func rename(token: StatusToken, to raw: String) {
+        guard let index = entries.firstIndex(where: { $0.token == token }) else { return }
+        entries[index].name = SentSecret.cleanName(raw)
+        save()
+    }
+
+    /// The live entry, so screens holding an older copy show the latest name.
+    func entry(for token: StatusToken) -> SentSecret? {
+        entries.first { $0.token == token }
     }
 
     func refreshAll() async {

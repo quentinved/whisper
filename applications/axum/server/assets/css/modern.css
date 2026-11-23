@@ -1467,6 +1467,19 @@ input:focus:not(:focus-visible) {
   min-width: 0;
 }
 
+/* The name is a button (click to rename) that reads as plain text */
+.sent-name,
+.sent-add-name {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .sent-name {
   font-size: 0.875rem;
   font-weight: 600;
@@ -1474,6 +1487,28 @@ input:focus:not(:focus-visible) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sent-name:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.sent-add-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.sent-add-name:hover {
+  color: var(--text-primary);
+}
+
+.sent-body .sent-name-input {
+  width: 100%;
+  margin: 0 0 0.25rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.875rem;
 }
 
 .sent-status {

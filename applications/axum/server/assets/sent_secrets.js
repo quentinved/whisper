@@ -45,6 +45,21 @@
     save(load().filter((e) => e.token !== token));
   }
 
+  // Naming after the fact: same local-only storage as `remember`.
+  function rename(token, name) {
+    const trimmed = (name || '').trim().slice(0, MAX_NAME_LENGTH);
+    save(
+      load().map((e) => {
+        if (e.token !== token) return e;
+        const copy = Object.assign({}, e);
+        if (trimmed) copy.name = trimmed;
+        else delete copy.name;
+        return copy;
+      })
+    );
+    return trimmed;
+  }
+
   // null: receipt gone (purged or unknown) · undefined: could not check
   async function fetchStatus(token) {
     try {
@@ -91,11 +106,55 @@
     return node;
   }
 
+  // The name slot: the name (click to rename) or "+ Add a name".
+  function nameControl(entry, rerender) {
+    const button = entry.name
+      ? el('button', 'sent-name', entry.name)
+      : el('button', 'sent-add-name', '+ Add a name');
+    button.type = 'button';
+    button.title = 'Only you see this name, in this browser';
+    button.setAttribute('aria-label', entry.name ? 'Rename “' + entry.name + '”' : 'Add a name only you can see');
+    button.addEventListener('click', () => button.replaceWith(nameEditor(entry, rerender)));
+    return button;
+  }
+
+  function nameEditor(entry, rerender) {
+    const input = el('input', 'sent-name-input');
+    input.type = 'text';
+    input.maxLength = MAX_NAME_LENGTH;
+    input.value = entry.name || '';
+    input.placeholder = 'Name only you can see';
+    input.autocomplete = 'off';
+    input.setAttribute('aria-label', 'Name for this secret, only visible in this browser');
+    let done = false;
+    const finish = (keep) => {
+      if (done) return; // Enter removes the input, which also fires blur
+      done = true;
+      if (keep) {
+        const name = rename(entry.token, input.value);
+        if (name) entry.name = name;
+        else delete entry.name;
+      }
+      rerender();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === 'Escape') {
+        finish(false);
+      }
+    });
+    input.addEventListener('blur', () => finish(true));
+    setTimeout(() => input.focus(), 0);
+    return input;
+  }
+
   function row(entry, status) {
     const d = describe(entry, status);
     const li = el('li', 'sent-row sent-row-' + d.state);
     const body = el('div', 'sent-body');
-    if (entry.name) body.append(el('div', 'sent-name', entry.name));
+    body.append(nameControl(entry, () => li.replaceWith(row(entry, status))));
     const line = el('div', 'sent-status');
     line.append(el('strong', 'sent-part', d.label));
     d.parts.forEach((part) => line.append(' · ', el('span', 'sent-part', part)));
@@ -129,7 +188,7 @@
     });
     section.replaceChildren(
       el('h3', 'sent-title', 'Sent secrets'),
-      el('p', 'sent-hint', 'Saved in this browser only — never the secret or its link.'),
+      el('p', 'sent-hint', 'Saved in this browser only — never the secret or its link. Names are only visible to you.'),
       list
     );
     section.hidden = list.childElementCount === 0;
