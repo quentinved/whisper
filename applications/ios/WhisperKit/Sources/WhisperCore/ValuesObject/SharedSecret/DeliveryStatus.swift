@@ -21,4 +21,26 @@ public struct DeliveryStatus: Equatable, Sendable {
         self.expiresAt = expiresAt
         self.openedAt = openedAt
     }
+
+    /// Where a sent secret stands for its sender. "Opened" means two different
+    /// things: a self-destruct secret is gone for good, a reusable one can still
+    /// be read until it expires. Mirrors `describe()` in `sent_secrets.js`.
+    public enum Outcome: Equatable, Sendable {
+        case waiting(expiresAt: Date)
+        case openedAndDeleted(openedAt: Date?)
+        case openedStillReadable(openedAt: Date?, until: Date)
+        case openedThenExpired(openedAt: Date?)
+        case expiredUnopened
+    }
+
+    public func outcome(selfDestruct: Bool, now: Date = Date()) -> Outcome {
+        switch state {
+        case .waiting: return .waiting(expiresAt: expiresAt)
+        case .expired: return .expiredUnopened
+        case .opened where selfDestruct: return .openedAndDeleted(openedAt: openedAt)
+        case .opened where expiresAt > now:
+            return .openedStillReadable(openedAt: openedAt, until: expiresAt)
+        case .opened: return .openedThenExpired(openedAt: openedAt)
+        }
+    }
 }

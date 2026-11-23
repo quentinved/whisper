@@ -43,10 +43,16 @@ struct SentView: View {
 
     private func row(_ entry: SentSecret) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            DeliveryStatusLabel(status: sent.statuses[entry.token])
+            if let name = entry.name {
+                Text(name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+            }
+            DeliveryStatusLabel(status: sent.statuses[entry.token], selfDestruct: entry.selfDestruct)
             Text(
                 "Sent " + entry.createdAt.formatted(date: .abbreviated, time: .shortened)
-                    + (entry.selfDestruct ? " · opens once" : "")
+                    + (entry.selfDestruct && !isSettled(entry) ? " · opens once" : "")
             )
             .font(.system(size: 13))
             .foregroundStyle(Theme.textMuted)
@@ -54,6 +60,12 @@ struct SentView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("sent-row")
+    }
+
+    /// Once opened or expired, "opens once" says nothing the status doesn't.
+    private func isSettled(_ entry: SentSecret) -> Bool {
+        guard case .known(let status) = sent.statuses[entry.token] else { return false }
+        return status.state != .waiting
     }
 
     private var emptyState: some View {

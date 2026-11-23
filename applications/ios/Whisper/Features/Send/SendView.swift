@@ -126,6 +126,24 @@ struct SendView: View {
 
     private var optionsCard: some View {
         VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                optionLabel("Name", detail: "Optional · only you see it, in your Sent list")
+                TextField("e.g. Staging database", text: $model.label)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textPrimary)
+                    .textInputAutocapitalization(.sentences)
+                    .submitLabel(.done)
+                    .onChange(of: model.label) { _, new in
+                        if new.count > SentSecret.maxNameLength {
+                            model.label = String(new.prefix(SentSecret.maxNameLength))
+                        }
+                    }
+                    .accessibilityIdentifier("name-field")
+            }
+            .padding(Theme.Spacing.normal)
+
+            Divider().overlay(Theme.border)
+
             HStack {
                 optionLabel("Expires after", detail: "Deleted automatically, opened or not")
                 Spacer()

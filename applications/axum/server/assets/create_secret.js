@@ -350,7 +350,13 @@ if (form && submitBtn) {
       }
       const body = await response.json();
       if (window.whisperSent) {
-        window.whisperSent.remember(body.status_token, new Date(expiration * 1000).toISOString(), selfDestruct);
+        const label = document.getElementById('secret-label');
+        window.whisperSent.remember(
+          body.status_token,
+          new Date(expiration * 1000).toISOString(),
+          selfDestruct,
+          label ? label.value : ''
+        );
       }
       // The key never leaves this device except inside the fragment,
       // which browsers do not send to servers.

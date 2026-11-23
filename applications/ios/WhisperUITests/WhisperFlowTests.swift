@@ -154,11 +154,16 @@ final class WhisperFlowTests: XCTestCase {
     /// delivery status (v1.5.0+).
     func testSentTabShowsWhenTheSecretWasOpened() throws {
         let secret = "delivered-\(Int.random(in: 1000...9999))"
+        let name = "Staging DB \(Int.random(in: 100...999))"
 
         let editor = app.textViews["secret-editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
         editor.typeText(secret)
+        let nameField = app.textFields["name-field"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10), "no name field in the composer")
+        nameField.tap()
+        nameField.typeText(name + "\n")
         app.buttons["create-button"].tap()
 
         let linkLabel = app.staticTexts["share-link"]
@@ -179,7 +184,9 @@ final class WhisperFlowTests: XCTestCase {
 
         app.buttons["Sent"].tap()
         let newest = app.descendants(matching: .any).matching(identifier: "sent-row").firstMatch
-        waitForLabel(of: newest, toContain: "Opened")
+        // Burn after reading is on by default, so opening it destroyed it.
+        waitForLabel(of: newest, toContain: "Opened & deleted")
+        XCTAssertTrue(newest.label.contains(name), "the Sent row lost its name: \(newest.label)")
         capture("11-sent-opened")
     }
 
