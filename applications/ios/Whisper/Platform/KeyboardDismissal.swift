@@ -30,6 +30,10 @@ struct KeyboardDismissal: UIViewRepresentable {
             var view = touch.view
             while let current = view {
                 if current is UITextView || current is UITextField { return false }
+                // System alerts handle their own taps: ending editing under one
+                // swallowed taps on its buttons (Save in the "Name this secret"
+                // prompt never fired).
+                if current.next is UIAlertController { return false }
                 view = current.superview
             }
             return true
