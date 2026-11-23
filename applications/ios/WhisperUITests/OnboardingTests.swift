@@ -17,7 +17,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(next.waitForExistence(timeout: 10), "the tour never appeared")
         XCTAssertTrue(app.buttons["onboarding-skip"].isHittable)
 
-        for _ in 0..<4 { next.tap() }
+        for _ in 0..<3 { next.tap() }
         XCTAssertEqual(next.label, "Get started")
         let skip = app.buttons["onboarding-skip"]
         XCTAssertFalse(skip.exists && skip.isHittable, "Skip is shown on the last page")
