@@ -1,4 +1,6 @@
 # Changelog
+## 23/11/2026 - https://github.com/quentinved/whisper/pull/26
+- iOS: the first-launch tutorial is shorter and friendlier. Four pages instead of five, each with a small preview of the screen it talks about (the composer, a link carrying its key, the Sent list with real "Opened & deleted" / "Waiting" rows) instead of a lone icon, plainer two-line sentences, and a gradient page indicator in place of the grey system dots. The previews stay still when Reduce Motion is on
 ## 23/11/2026 - https://github.com/quentinved/whisper/pull/25
 - iOS: a short tutorial on first launch explains the app to newcomers: what Whisper is, then Send, why only the link can open a secret, Sent and Open. Skip it any time, replay it from **Settings › About › Show the tutorial**; opening the app from a Whisper link skips it so you land on your secret
 - iOS: opening a link whose secret was already opened or has expired now shows a calm **Already gone** screen, instead of the paste form with the link still in it and a red error
