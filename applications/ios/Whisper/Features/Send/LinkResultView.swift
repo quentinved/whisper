@@ -18,6 +18,7 @@ struct LinkResultView: View {
     @State private var didCopy = false
     @State private var showingQR = false
     @State private var sealScale: CGFloat = 0.6
+    @State private var renaming: SentSecret?
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
@@ -133,13 +134,26 @@ extension LinkResultView {
     @ViewBuilder
     fileprivate var deliveryCard: some View {
         if let entry = sentSecret {
+            // Live from the store, so naming it here shows up right away.
+            let name = sent.entry(for: entry.token)?.name
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.name.map { "Delivery · \($0)" } ?? "Delivery")
+                HStack(spacing: Theme.Spacing.tight) {
+                    Text(name.map { "Delivery · \($0)" } ?? "Delivery")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.textMuted)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Button(name == nil ? "Add a name" : "Rename") {
+                        renaming = sent.entry(for: entry.token) ?? entry
+                    }
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.textMuted)
-                    .lineLimit(1)
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityHint("Only you see the name, on this iPhone")
+                    .accessibilityIdentifier("rename-button")
+                }
                 DeliveryStatusLabel(status: sent.statuses[entry.token], selfDestruct: entry.selfDestruct)
             }
+            .renameSentSecret($renaming)
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardBackground(padding: Theme.Spacing.snug)
             .task { await sent.refresh(entry) }
