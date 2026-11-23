@@ -28,6 +28,9 @@ final class WhisperFlowTests: XCTestCase {
         app = XCUIApplication()
         app.launchEnvironment["WHISPER_SERVER"] = server
         app.launchEnvironment["WHISPER_DISABLE_BIOMETRIC_GATE"] = "1"
+        // UserDefaults argument domain: overrides `OnboardingView.pendingKey`
+        // for this run only, so the first-launch tour doesn't cover the tabs.
+        app.launchArguments += ["-onboarding_pending", "NO"]
         app.launch()
 
         try prepareApp()
@@ -82,6 +85,36 @@ final class WhisperFlowTests: XCTestCase {
         capture("05-revealed")
     }
 
+    /// A revealed secret must not sit in the app until the next link: once its
+    /// time is up, the screen forgets the plaintext on its own.
+    func testRevealedSecretClearsItself() throws {
+        app.terminate()
+        app.launchEnvironment["WHISPER_REVEAL_LIFETIME"] = "5"
+        app.launch()
+
+        let editor = app.textViews["secret-editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10), "composer never appeared")
+        editor.tap()
+        editor.typeText("short-lived-\(Int.random(in: 1000...9999))")
+        app.buttons["create-button"].tap()
+
+        let linkLabel = app.staticTexts["share-link"]
+        XCTAssertTrue(linkLabel.waitForExistence(timeout: 20), "no link was produced")
+        openLink(linkLabel.label)
+
+        let reveal = app.buttons["reveal-button"]
+        XCTAssertTrue(reveal.waitForExistence(timeout: 20), "confirmation step never appeared")
+        reveal.tap()
+
+        XCTAssertTrue(
+            app.buttons["reveal-toggle"].waitForExistence(timeout: 20),
+            "the secret was never decrypted")
+        XCTAssertTrue(
+            app.textFields["link-field"].waitForExistence(timeout: 20),
+            "the revealed secret never cleared itself")
+        XCTAssertFalse(app.buttons["reveal-toggle"].exists, "the plaintext is still on screen")
+    }
+
     /// The web's "Multiple Values" mode, both ways: build key/value pairs here,
     /// and read them back as separate, individually revealed fields.
     func testMultipleValuesRoundTrip() throws {
@@ -121,11 +154,16 @@ final class WhisperFlowTests: XCTestCase {
     /// delivery status (v1.5.0+).
     func testSentTabShowsWhenTheSecretWasOpened() throws {
         let secret = "delivered-\(Int.random(in: 1000...9999))"
+        let name = "Staging DB \(Int.random(in: 100...999))"
 
         let editor = app.textViews["secret-editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
         editor.typeText(secret)
+        let nameField = app.textFields["name-field"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10), "no name field in the composer")
+        nameField.tap()
+        nameField.typeText(name + "\n")
         app.buttons["create-button"].tap()
 
         let linkLabel = app.staticTexts["share-link"]
@@ -146,7 +184,9 @@ final class WhisperFlowTests: XCTestCase {
 
         app.buttons["Sent"].tap()
         let newest = app.descendants(matching: .any).matching(identifier: "sent-row").firstMatch
-        waitForLabel(of: newest, toContain: "Opened")
+        // Burn after reading is on by default, so opening it destroyed it.
+        waitForLabel(of: newest, toContain: "Opened & deleted")
+        XCTAssertTrue(newest.label.contains(name), "the Sent row lost its name: \(newest.label)")
         capture("11-sent-opened")
     }
 
@@ -203,8 +243,12 @@ final class WhisperFlowTests: XCTestCase {
         if secondReveal.waitForExistence(timeout: 5) {
             secondReveal.tap()
         }
+        XCTAssertTrue(
+            app.staticTexts["secret-gone"].waitForExistence(timeout: 10),
+            "a burnt secret should land on the gone screen"
+        )
         XCTAssertFalse(
-            app.buttons["reveal-toggle"].waitForExistence(timeout: 10),
+            app.buttons["reveal-toggle"].exists,
             "a burn-after-reading secret was served twice"
         )
         capture("06-burned")

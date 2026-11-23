@@ -9,8 +9,16 @@ final class ReceiveViewModel {
         case inspecting
         case confirming(WhisperLink, SecretMetadata?)
         case revealing
-        case revealed(String, burned: Bool)
+        case revealed(String, burned: Bool, until: Date)
+        /// Already opened or expired: a calm end state, not an error on the paste form.
+        case gone
     }
+
+    /// How long a revealed secret stays on screen before the app forgets it.
+    /// UI tests shorten it through the launch environment; absent in any normal run.
+    static let revealLifetime: TimeInterval =
+        ProcessInfo.processInfo.environment["WHISPER_REVEAL_LIFETIME"].flatMap(TimeInterval.init)
+        ?? 120
 
     var pasted = ""
     private(set) var phase: Phase = .idle
@@ -37,6 +45,8 @@ final class ReceiveViewModel {
             let metadata = try await GetSecretMetadata(id: link.id)
                 .handle(repository: dependencies.repository(link.server))
             phase = .confirming(link, metadata)
+        } catch SharedSecretRepositoryError.notFound {
+            showGone()
         } catch {
             phase = .idle
             errorMessage = error.localizedDescription
@@ -61,11 +71,32 @@ final class ReceiveViewModel {
                 repository: dependencies.repository(link.server)
             )
             pasted = ""
-            phase = .revealed(revealed.text, burned: revealed.burned)
+            let until = Date().addingTimeInterval(Self.revealLifetime)
+            phase = .revealed(revealed.text, burned: revealed.burned, until: until)
+            forget(at: until)
+        } catch SharedSecretRepositoryError.notFound {
+            showGone()
         } catch {
             errorMessage = error.localizedDescription
             phase = .confirming(link, metadata)
         }
+    }
+
+    /// Drops the plaintext once its time is up, unless the user already moved on
+    /// to another link — only the reveal that scheduled this is cleared.
+    private func forget(at until: Date) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.revealLifetime))
+            guard let self, case .revealed(_, _, let current) = self.phase, current == until
+            else { return }
+            self.reset()
+        }
+    }
+
+    private func showGone() {
+        pasted = ""
+        errorMessage = nil
+        phase = .gone
     }
 
     func reset() {

@@ -69,6 +69,19 @@
     <div id="multivalue-error" class="alert alert-error mt-075" hidden></div>
   </div>
 
+  <!-- Name: stays in this browser, never sent (no name attribute, not in the request body) -->
+  <div class="form-group">
+    <label for="secret-label">Name <span class="label-optional">(optional)</span></label>
+    <input
+      type="text"
+      id="secret-label"
+      maxlength="60"
+      autocomplete="off"
+      placeholder="e.g. Staging database"
+    />
+    <div class="subtitle mt-025">Only you see it, in your Sent list. Never sent to the server.</div>
+  </div>
+
   <!-- Expiration -->
   <div class="form-group">
     <label for="expiration-input">Link Expires</label>

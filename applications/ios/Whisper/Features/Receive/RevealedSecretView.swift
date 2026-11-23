@@ -7,8 +7,11 @@ import WhisperCore
 struct RevealedSecretView: View {
     let secret: String
     let burned: Bool
+    /// When the app clears this screen on its own.
+    let until: Date
     let onDone: () -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var didCopy = false
     @State private var isHidden = true
 
@@ -55,10 +58,18 @@ struct RevealedSecretView: View {
                     .buttonStyle(SecondaryButtonStyle())
             }
 
-            Text("The clipboard clears itself after \(Int(Clipboard.lifetime)) seconds.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.textMuted)
+            Text(
+                "Clears from this screen in \(Text(until, style: .timer)), from the clipboard after \(Int(Clipboard.lifetime)) seconds."
+            )
+            .font(.system(size: 13))
+            .monospacedDigit()
+            .foregroundStyle(Theme.textMuted)
+            .multilineTextAlignment(.center)
+            .accessibilityIdentifier("reveal-countdown")
         }
+        // Frosted whenever the app isn't in front, so the app-switcher snapshot
+        // iOS keeps never holds the plaintext.
+        .blur(radius: scenePhase == .active ? 0 : 20)
     }
 
     private var secretCard: some View {

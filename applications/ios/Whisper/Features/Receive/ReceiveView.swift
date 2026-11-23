@@ -27,12 +27,15 @@ struct ReceiveView: View {
                         onReveal: {},
                         onCancel: {}
                     )
-                case .revealed(let secret, let burned):
+                case .revealed(let secret, let burned, let until):
                     RevealedSecretView(
                         secret: secret,
                         burned: burned,
+                        until: until,
                         onDone: { withAnimation { model.reset() } }
                     )
+                case .gone:
+                    goneSection
                 }
 
                 if let message = model.errorMessage {
@@ -42,6 +45,34 @@ struct ReceiveView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.phase)
         .animation(.easeOut(duration: 0.2), value: model.errorMessage)
+    }
+
+    private var goneSection: some View {
+        VStack(spacing: Theme.Spacing.loose) {
+            GlassBadge(size: 96, cornerRadius: 30) {
+                Image(systemName: "wind")
+                    .font(.system(size: 38, weight: .medium))
+                    .foregroundStyle(Theme.markGradient)
+                    .shadow(color: Theme.violet.opacity(0.35), radius: 8)
+            }
+            .padding(.top, Theme.Spacing.loose)
+
+            VStack(spacing: Theme.Spacing.snug) {
+                Text("Already gone")
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(-0.5)
+                    .foregroundStyle(Theme.textPrimary)
+                    .accessibilityIdentifier("secret-gone")
+
+                Text("This secret was already opened or it expired. Ask the sender for a new link.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.textMuted)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Got it") { withAnimation { model.reset() } }
+                .buttonStyle(PrimaryButtonStyle())
+        }
     }
 
     private var inputSection: some View {

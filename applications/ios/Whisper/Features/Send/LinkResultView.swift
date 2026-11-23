@@ -134,10 +134,11 @@ extension LinkResultView {
     fileprivate var deliveryCard: some View {
         if let entry = sentSecret {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Delivery")
+                Text(entry.name.map { "Delivery · \($0)" } ?? "Delivery")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.textMuted)
-                DeliveryStatusLabel(status: sent.statuses[entry.token])
+                    .lineLimit(1)
+                DeliveryStatusLabel(status: sent.statuses[entry.token], selfDestruct: entry.selfDestruct)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardBackground(padding: Theme.Spacing.snug)

@@ -25,7 +25,10 @@
     } catch (_) {}
   }
 
-  function remember(token, expiresAt, selfDestruct) {
+  const MAX_NAME_LENGTH = 60;
+
+  // The name only lives here, in this browser: it is never sent to the server.
+  function remember(token, expiresAt, selfDestruct, name) {
     if (!token) return; // older server, or tracking failed: nothing to follow
     const entry = {
       token: token,
@@ -33,6 +36,8 @@
       expires_at: expiresAt,
       self_destruct: selfDestruct,
     };
+    const trimmed = (name || '').trim().slice(0, MAX_NAME_LENGTH);
+    if (trimmed) entry.name = trimmed;
     save([entry].concat(load()));
   }
 
@@ -59,11 +64,24 @@
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
   }
 
-  function describe(status) {
-    if (status === undefined) return { state: 'unknown', label: 'Unknown', detail: "couldn't check" };
-    if (status.state === 'opened') return { state: 'opened', label: 'Opened', detail: formatTime(status.opened_at) };
-    if (status.state === 'expired') return { state: 'expired', label: 'Expired', detail: 'never opened' };
-    return { state: 'waiting', label: 'Waiting', detail: 'expires ' + formatTime(status.expires_at) };
+  // Same wording as the iOS app (DeliveryStatus.outcome): a self-destruct
+  // secret that was opened is gone for good, a reusable one stays readable
+  // until it expires.
+  // `parts` are joined with " · " and never broken inside, so a narrow phone
+  // wraps between "today 14:02" and "readable until …", not before "PM".
+  function describe(entry, status) {
+    if (status === undefined) return { state: 'unknown', label: 'Unknown', parts: ["couldn't check"] };
+    if (status.state === 'waiting') {
+      const parts = ['expires ' + formatTime(status.expires_at)];
+      if (entry.self_destruct) parts.push('opens once');
+      return { state: 'waiting', label: 'Waiting', parts: parts };
+    }
+    if (status.state === 'expired') return { state: 'expired', label: 'Expired', parts: ['never opened'] };
+    const opened = formatTime(status.opened_at);
+    if (entry.self_destruct) return { state: 'opened', label: 'Opened & deleted', parts: [opened] };
+    const stillReadable = new Date(status.expires_at) > new Date();
+    const after = stillReadable ? 'readable until ' + formatTime(status.expires_at) : 'expired';
+    return { state: 'opened', label: 'Opened', parts: [opened, after] };
   }
 
   function el(tag, className, text) {
@@ -74,13 +92,18 @@
   }
 
   function row(entry, status) {
-    const d = describe(status);
+    const d = describe(entry, status);
     const li = el('li', 'sent-row sent-row-' + d.state);
-    li.append(el('span', 'sent-state', d.label), el('span', 'sent-detail', d.detail));
-    if (entry.self_destruct) li.append(el('span', 'sent-tag', 'self-destruct'));
+    const body = el('div', 'sent-body');
+    if (entry.name) body.append(el('div', 'sent-name', entry.name));
+    const line = el('div', 'sent-status');
+    line.append(el('strong', 'sent-part', d.label));
+    d.parts.forEach((part) => line.append(' · ', el('span', 'sent-part', part)));
+    body.append(line);
+    li.append(el('span', 'sent-dot'), body);
     const remove = el('button', 'sent-remove', '×');
     remove.type = 'button';
-    remove.setAttribute('aria-label', 'Remove from this list');
+    remove.setAttribute('aria-label', 'Remove ' + (entry.name ? '“' + entry.name + '” ' : '') + 'from this list');
     remove.addEventListener('click', () => {
       forget(entry.token);
       li.remove();

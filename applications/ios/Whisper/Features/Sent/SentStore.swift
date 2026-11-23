@@ -11,8 +11,19 @@ struct SentSecret: Codable, Identifiable, Equatable, Sendable {
     let createdAt: Date
     let expiresAt: Date
     let selfDestruct: Bool
+    /// What the sender called it. Kept on this device only, never sent to the
+    /// server. Optional, so entries saved before names existed still decode.
+    let name: String?
 
     var id: StatusToken { token }
+
+    static let maxNameLength = 60
+
+    /// Trimmed and capped like the web field; empty means no name.
+    static func cleanName(_ raw: String) -> String? {
+        let trimmed = String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxNameLength))
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 /// The "Sent" list, kept in `UserDefaults` like the web keeps it in

@@ -4,6 +4,7 @@ struct SettingsView: View {
     static let repository = URL(string: "https://github.com/quentinved/whisper")!
 
     @Environment(AppSettings.self) private var settings
+    @AppStorage(OnboardingView.pendingKey) private var onboardingPending = true
 
     var body: some View {
         @Bindable var settings = settings
@@ -62,6 +63,13 @@ struct SettingsView: View {
                 .tint(Theme.accent)
 
                 Section {
+                    Button {
+                        onboardingPending = true
+                    } label: {
+                        Label("Show the tutorial", systemImage: "questionmark.circle")
+                    }
+                    .tint(Theme.accent)
+                    .accessibilityIdentifier("show-tutorial")
                     LabeledContent("Encryption", value: "AES-256-GCM")
                     LabeledContent("Key location", value: "The link, never the server")
                     LabeledContent("Version", value: Bundle.main.shortVersion)

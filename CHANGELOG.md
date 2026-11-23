@@ -1,4 +1,13 @@
 # Changelog
+## 23/11/2026 - https://github.com/quentinved/whisper/pull/25
+- iOS: a short tutorial on first launch explains the app to newcomers: what Whisper is, then Send, why only the link can open a secret, Sent and Open. Skip it any time, replay it from **Settings › About › Show the tutorial**; opening the app from a Whisper link skips it so you land on your secret
+- iOS: opening a link whose secret was already opened or has expired now shows a calm **Already gone** screen, instead of the paste form with the link still in it and a red error
+- iOS: a revealed secret no longer stays in the app until you open the next link. It clears itself after 2 minutes (a countdown shows the time left), and the reveal screen is blurred whenever the app leaves the foreground, so the app switcher never shows it
+- Name your sent secrets: an optional "Name" field (website and iOS app, up to 60 characters) labels each secret in the Sent list and on the "Link Created" / "Link ready" screen. The name is saved on your device only, next to the status key, and is never sent to the server
+- Clearer delivery status: a self-destruct secret that was opened now reads "Opened & deleted"; a reusable one reads "Opened · … · readable until …" (or "· expired" once its lifetime ran out). Same wording on the website and in the app, which replaces the separate "self-destruct" tag
+- Website: the "opened" dot in the Sent list is now green (new `--delivered` token, the same mint as the iOS app) instead of black/white, and each row shows the name above its status
+- Privacy policy: localStorage now also holds the optional names you give sent secrets; names never leave your device
+- Server v1.5.1 (website assets only)
 ## 19/11/2026 - https://github.com/quentinved/whisper/pull/24
 - Delivery status: the website now shows a "Sent secrets" list on the home and "Link Created" pages, with each secret you sent from this browser marked Waiting, Opened (with the time) or Expired (never opened). No account and no email: the list lives in the browser's localStorage and holds only a status key, never the secret, its link or its key
 - New `GET /v1/status/:token` endpoint (`{ state, expires_at, opened_at }`, `Cache-Control: no-store`). The status token can only read the status: it cannot open, decrypt or burn the secret, and the share link cannot read the status

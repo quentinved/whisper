@@ -40,6 +40,8 @@ final class SendViewModel {
         didSet { if isCustomExpiration { expiration = .custom(customDate) } }
     }
     var selfDestruct = true
+    /// Optional name for the Sent list. Never part of the secret or the request.
+    var label = ""
     private(set) var phase: Phase = .composing
     var errorMessage: String?
     /// The Sent-list entry for the link on screen, when the server tracks
@@ -95,11 +97,13 @@ final class SendViewModel {
                 repository: dependencies.repository(settings.server),
                 now: now
             )
+            let name = SentSecret.cleanName(label)
             clearDrafts()
             lastSent = created.statusToken.map {
                 SentSecret(
                     token: $0, server: settings.server, createdAt: now,
-                    expiresAt: expiration.date(from: now), selfDestruct: selfDestruct)
+                    expiresAt: expiration.date(from: now), selfDestruct: selfDestruct,
+                    name: name)
             }
             if let lastSent { sent.add(lastSent) }
             phase = .created(created.link)
@@ -149,6 +153,7 @@ final class SendViewModel {
     /// Drafts hold secret values; nothing of them should outlive the link.
     private func clearDrafts() {
         secret = ""
+        label = ""
         rows = [DraftRow()]
         sections = []
     }
