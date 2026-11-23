@@ -12,6 +12,7 @@ struct RootView: View {
     @State private var sent = SentStore()
     @State private var receiveModel = ReceiveViewModel()
     @State private var tab: Tab = .send
+    @AppStorage(OnboardingView.pendingKey) private var onboardingPending = true
 
     var body: some View {
         TabView(selection: $tab) {
@@ -35,10 +36,15 @@ struct RootView: View {
         .background(KeyboardDismissal())
         .environment(settings)
         .environment(sent)
+        .fullScreenCover(isPresented: $onboardingPending) {
+            OnboardingView { onboardingPending = false }
+        }
         .onOpenURL { url in
             // A link opened from Messages, Mail or a QR code lands here. It is
             // only inspected — never consumed — so an accidental tap cannot
-            // burn a one-time secret.
+            // burn a one-time secret. Someone arriving with a link came for
+            // that secret, so the tour steps aside.
+            onboardingPending = false
             tab = .receive
             receiveModel.pasted = url.absoluteString
             Task { await receiveModel.inspect(url.absoluteString, using: settings) }

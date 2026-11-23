@@ -28,6 +28,9 @@ final class WhisperFlowTests: XCTestCase {
         app = XCUIApplication()
         app.launchEnvironment["WHISPER_SERVER"] = server
         app.launchEnvironment["WHISPER_DISABLE_BIOMETRIC_GATE"] = "1"
+        // UserDefaults argument domain: overrides `OnboardingView.pendingKey`
+        // for this run only, so the first-launch tour doesn't cover the tabs.
+        app.launchArguments += ["-onboarding_pending", "NO"]
         app.launch()
 
         try prepareApp()
